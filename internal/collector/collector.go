@@ -8,10 +8,15 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/iresharma/tracer/internal/collector/config"
 	"github.com/iresharma/tracer/internal/collector/ingest"
+	"github.com/iresharma/tracer/internal/collector/metrics"
 	"github.com/iresharma/tracer/internal/collector/queryapi"
 	"github.com/iresharma/tracer/internal/collector/store"
 	"github.com/iresharma/tracer/internal/collector/ui"
@@ -43,20 +48,21 @@ func New(cfg config.Config) (*Server, error) {
 	uiHandlers := ui.New(s, cfg.TraceWindowDays)
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /api/v1/logs", ingestHandler)
-	mux.HandleFunc("GET /api/v1/trace/{id}", api.TraceHandler)
-	mux.HandleFunc("GET /api/v1/logs", api.LogsHandler)
-	mux.HandleFunc("GET /api/v1/facets", api.FacetsHandler)
+	route(mux, "POST /api/v1/logs", ingestHandler)
+	route(mux, "GET /api/v1/trace/{id}", http.HandlerFunc(api.TraceHandler))
+	route(mux, "GET /api/v1/logs", http.HandlerFunc(api.LogsHandler))
+	route(mux, "GET /api/v1/facets", http.HandlerFunc(api.FacetsHandler))
 	mux.HandleFunc("GET /healthz", queryapi.HealthzHandler)
 	mux.HandleFunc("GET /readyz", queryapi.ReadyzHandler(s))
+	mux.Handle("GET /metrics", promhttp.Handler())
 
-	mux.HandleFunc("GET /{$}", uiHandlers.Index)
-	mux.HandleFunc("GET /logs", uiHandlers.LogsPage)
-	mux.HandleFunc("GET /logs/results", uiHandlers.LogsResults)
-	mux.HandleFunc("GET /trace", uiHandlers.TraceRedirect)
-	mux.HandleFunc("GET /trace/{id}", uiHandlers.TraceView)
-	mux.HandleFunc("GET /query", uiHandlers.QueryPage)
-	mux.HandleFunc("POST /query/run", uiHandlers.QueryRun)
+	route(mux, "GET /{$}", http.HandlerFunc(uiHandlers.Index))
+	route(mux, "GET /logs", http.HandlerFunc(uiHandlers.LogsPage))
+	route(mux, "GET /logs/results", http.HandlerFunc(uiHandlers.LogsResults))
+	route(mux, "GET /trace", http.HandlerFunc(uiHandlers.TraceRedirect))
+	route(mux, "GET /trace/{id}", http.HandlerFunc(uiHandlers.TraceView))
+	route(mux, "GET /query", http.HandlerFunc(uiHandlers.QueryPage))
+	route(mux, "POST /query/run", http.HandlerFunc(uiHandlers.QueryRun))
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(ui.StaticFS())))
 
 	return &Server{
@@ -113,12 +119,48 @@ func (srv *Server) retentionLoop(ctx context.Context) {
 }
 
 func (srv *Server) prune() {
+	timer := prometheus.NewTimer(metrics.RetentionPruneDuration)
 	dropped, err := srv.store.PruneOlderThan(srv.cfg.RetentionDays)
+	timer.ObserveDuration()
 	if err != nil {
 		log.Printf("collector: retention prune failed: %v", err)
 		return
 	}
 	if len(dropped) > 0 {
+		metrics.RetentionPartitionsDroppedTotal.Add(float64(len(dropped)))
 		log.Printf("collector: pruned %d partition(s) older than %d days: %v", len(dropped), srv.cfg.RetentionDays, dropped)
 	}
+}
+
+// route wraps h with request-count and duration instrumentation labeled by
+// the exact pattern string it was registered under (not extracted from the
+// request at runtime, since net/http doesn't expose the matched pattern on
+// *http.Request) — cheap and avoids unbounded label cardinality from raw
+// URL paths. Health/readiness/metrics/static routes are deliberately left
+// uninstrumented: high-volume, low-value noise (scrapers polling
+// themselves, asset requests).
+func route(mux *http.ServeMux, pattern string, h http.Handler) {
+	mux.Handle(pattern, instrument(pattern, h))
+}
+
+func instrument(route string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		timer := prometheus.NewTimer(metrics.HTTPRequestDuration.WithLabelValues(route))
+		next.ServeHTTP(rec, r)
+		timer.ObserveDuration()
+		metrics.HTTPRequestsTotal.WithLabelValues(route, strconv.Itoa(rec.status)).Inc()
+	})
+}
+
+// statusRecorder captures the status code written by the wrapped handler —
+// http.ResponseWriter doesn't expose it otherwise.
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	r.status = code
+	r.ResponseWriter.WriteHeader(code)
 }

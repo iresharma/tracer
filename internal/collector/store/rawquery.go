@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/iresharma/tracer/internal/collector/metrics"
 )
 
 const (
@@ -35,19 +39,35 @@ type QueryResult struct {
 // queryTimeout, so a pathological query (accidental cross join, unbounded
 // scan) can't hold memory or a connection indefinitely on this
 // resource-constrained pod.
-func (s *Store) RunReadOnlyQuery(ctx context.Context, query string) (*QueryResult, error) {
+func (s *Store) RunReadOnlyQuery(ctx context.Context, query string) (result *QueryResult, err error) {
 	q := strings.TrimSpace(query)
 	if q == "" {
+		metrics.QueryTotal.WithLabelValues("rejected").Inc()
 		return nil, fmt.Errorf("empty query")
 	}
 	q = strings.TrimSpace(strings.TrimSuffix(q, ";"))
 	if strings.Contains(q, ";") {
+		metrics.QueryTotal.WithLabelValues("rejected").Inc()
 		return nil, fmt.Errorf("only a single statement is allowed")
 	}
 	lower := strings.ToLower(q)
 	if !strings.HasPrefix(lower, "select") && !strings.HasPrefix(lower, "with") {
+		metrics.QueryTotal.WithLabelValues("rejected").Inc()
 		return nil, fmt.Errorf("only SELECT queries are allowed")
 	}
+
+	// From here, the query actually executes — record ok/error exactly
+	// once based on the final named return, regardless of which of the
+	// several error paths below fires.
+	timer := prometheus.NewTimer(metrics.QueryDuration)
+	defer func() {
+		timer.ObserveDuration()
+		if err != nil {
+			metrics.QueryTotal.WithLabelValues("error").Inc()
+		} else {
+			metrics.QueryTotal.WithLabelValues("ok").Inc()
+		}
+	}()
 
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
@@ -63,7 +83,7 @@ func (s *Store) RunReadOnlyQuery(ctx context.Context, query string) (*QueryResul
 		return nil, err
 	}
 
-	result := &QueryResult{Columns: cols}
+	result = &QueryResult{Columns: cols}
 	vals := make([]any, len(cols))
 	ptrs := make([]any, len(cols))
 	for i := range vals {

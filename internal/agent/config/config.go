@@ -23,6 +23,7 @@ type Config struct {
 	RingCapacity    int
 	CheckpointFlush time.Duration
 	StartAtEnd      bool
+	MetricsAddr     string
 }
 
 func Load() Config {
@@ -41,6 +42,7 @@ func Load() Config {
 		RingCapacity:    getEnvInt("RING_BUFFER_CAPACITY", 20),
 		CheckpointFlush: getEnvDuration("CHECKPOINT_FLUSH_INTERVAL", 3*time.Second),
 		StartAtEnd:      getEnvBool("START_AT_END", true),
+		MetricsAddr:     getEnv("METRICS_ADDR", ":9091"),
 	}
 }
 

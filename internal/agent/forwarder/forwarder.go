@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/iresharma/tracer/internal/agent/metrics"
 	"github.com/iresharma/tracer/internal/model"
 )
 
@@ -87,6 +88,7 @@ func (f *Forwarder) Run(stop <-chan struct{}) {
 		}
 
 		if err := f.send(batch); err != nil {
+			metrics.ForwarderSendTotal.WithLabelValues("failure").Inc()
 			log.Printf("forwarder: send failed (%d entries): %v; retrying in %s", len(batch), err, f.backoff)
 			select {
 			case <-stop:
@@ -97,11 +99,14 @@ func (f *Forwarder) Run(stop <-chan struct{}) {
 			if f.backoff > f.opts.MaxBackoff {
 				f.backoff = f.opts.MaxBackoff
 			}
+			metrics.ForwarderBackoffSeconds.Set(f.backoff.Seconds())
 			continue
 		}
 
+		metrics.ForwarderSendTotal.WithLabelValues("success").Inc()
 		f.ring.Pop()
 		f.backoff = f.opts.MinBackoff
+		metrics.ForwarderBackoffSeconds.Set(f.backoff.Seconds())
 
 		select {
 		case <-stop:

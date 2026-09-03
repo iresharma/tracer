@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/iresharma/tracer/internal/agent/checkpoint"
+	"github.com/iresharma/tracer/internal/agent/metrics"
 	"github.com/iresharma/tracer/internal/agent/parser"
 )
 
@@ -150,6 +151,7 @@ func (t *Tailer) poll() error {
 	}
 
 	if currentInode != t.inode {
+		metrics.TailerRotationsTotal.Inc()
 		if err := t.handleRotation(); err != nil {
 			return fmt.Errorf("handle rotation: %w", err)
 		}
@@ -158,6 +160,7 @@ func (t *Tailer) poll() error {
 	if fi.Size() < t.offset {
 		// Truncated in place without a rename (some runtimes/log rotators
 		// do this). Reopen from the start.
+		metrics.TailerRotationsTotal.Inc()
 		if err := t.reopenFromStart(); err != nil {
 			return err
 		}
@@ -227,6 +230,7 @@ func (t *Tailer) readAvailable() error {
 		}
 
 		t.offset += int64(len(raw))
+		metrics.TailerBytesTotal.Add(float64(len(raw)))
 		if len(raw) > t.opts.MaxLineBytes {
 			raw = raw[len(raw)-t.opts.MaxLineBytes:]
 		}
@@ -235,11 +239,13 @@ func (t *Tailer) readAvailable() error {
 		if ferr != nil {
 			// Malformed line; skip it and keep tailing rather than
 			// aborting the whole file.
+			metrics.TailerMalformedLinesTotal.Inc()
 			continue
 		}
 		if !ready {
 			continue
 		}
+		metrics.TailerLinesTotal.Inc()
 
 		select {
 		case t.out <- Line{Path: t.path, CRILine: line}:

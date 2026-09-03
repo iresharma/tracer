@@ -3,6 +3,7 @@ package forwarder
 import (
 	"sync"
 
+	"github.com/iresharma/tracer/internal/agent/metrics"
 	"github.com/iresharma/tracer/internal/model"
 )
 
@@ -29,8 +30,10 @@ func (r *ring) Push(batch []model.LogEntry) {
 	if len(r.items) >= r.capacity {
 		r.items = r.items[1:]
 		r.dropped++
+		metrics.ForwarderRingDroppedTotal.Inc()
 	}
 	r.items = append(r.items, batch)
+	metrics.ForwarderRingDepth.Set(float64(len(r.items)))
 }
 
 // Peek returns the oldest batch without removing it, or ok=false if empty.
@@ -52,6 +55,7 @@ func (r *ring) Pop() {
 		return
 	}
 	r.items = r.items[1:]
+	metrics.ForwarderRingDepth.Set(float64(len(r.items)))
 }
 
 func (r *ring) Len() int {

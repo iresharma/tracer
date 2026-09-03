@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+
+	"github.com/iresharma/tracer/internal/agent/metrics"
 )
 
 // Scanner watches root (e.g. /var/log/pods) for container log files and
@@ -121,4 +123,5 @@ func (s *Scanner) scanOnce() {
 		}
 		return nil
 	})
+	metrics.DiscoveryFilesTracked.Set(float64(len(s.seen)))
 }

@@ -9,6 +9,10 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/iresharma/tracer/internal/agent/metrics"
 )
 
 type Entry struct {
@@ -78,6 +82,12 @@ func (s *Store) Remove(path string) {
 // Flush atomically persists the registry to disk (write to a temp file in
 // the same directory, then rename — crash-safe, no torn writes).
 func (s *Store) Flush() error {
+	timer := prometheus.NewTimer(metrics.CheckpointFlushDuration)
+	defer func() {
+		timer.ObserveDuration()
+		metrics.CheckpointFlushesTotal.Inc()
+	}()
+
 	s.mu.Lock()
 	data, err := json.Marshal(s.reg)
 	s.mu.Unlock()

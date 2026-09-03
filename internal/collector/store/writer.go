@@ -7,6 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/iresharma/tracer/internal/collector/metrics"
 	"github.com/iresharma/tracer/internal/model"
 )
 
@@ -61,6 +64,8 @@ func (w *Writer) Enqueue(e model.LogEntry) bool {
 // Run drains the channel until Stop is called, batching entries into
 // transactions on a size/time trigger. Intended to run in its own goroutine.
 func (w *Writer) Run() {
+	metrics.WriterQueueCapacity.Set(float64(cap(w.in)))
+
 	ticker := time.NewTicker(w.flushEvery)
 	defer ticker.Stop()
 
@@ -69,13 +74,22 @@ func (w *Writer) Run() {
 		if len(batch) == 0 {
 			return
 		}
-		if err := w.store.insertBatch(batch); err != nil {
+		timer := prometheus.NewTimer(metrics.WriterFlushDuration)
+		err := w.store.insertBatch(batch)
+		timer.ObserveDuration()
+
+		metrics.WriterFlushesTotal.Inc()
+		if err != nil {
 			log.Printf("store: insert batch failed (dropping %d entries): %v", len(batch), err)
+			metrics.WriterInsertErrorsTotal.Inc()
+		} else {
+			metrics.WriterRowsWrittenTotal.Add(float64(len(batch)))
 		}
 		batch = batch[:0]
 	}
 
 	for {
+		metrics.WriterQueueDepth.Set(float64(len(w.in)))
 		select {
 		case e, ok := <-w.in:
 			if !ok {

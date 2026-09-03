@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/iresharma/tracer/internal/collector/metrics"
 	"github.com/iresharma/tracer/internal/collector/store"
 	"github.com/iresharma/tracer/internal/model"
 )
@@ -55,17 +56,22 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	metrics.IngestBatchesTotal.Inc()
+
 	accepted, rejected := 0, 0
 	full := false
 	for _, e := range batch.Entries {
 		if e.Raw == "" {
 			rejected++
+			metrics.IngestEntriesTotal.WithLabelValues("rejected").Inc()
 			continue
 		}
 		if h.writer.Enqueue(e) {
 			accepted++
+			metrics.IngestEntriesTotal.WithLabelValues("accepted").Inc()
 		} else {
 			full = true
+			metrics.IngestEntriesTotal.WithLabelValues("queue_full").Inc()
 			break
 		}
 	}

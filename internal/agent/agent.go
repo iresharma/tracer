@@ -5,7 +5,10 @@ package agent
 import (
 	"context"
 	"log"
+	"net/http"
 	"sync"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/iresharma/tracer/internal/agent/batcher"
 	"github.com/iresharma/tracer/internal/agent/checkpoint"
@@ -56,6 +59,8 @@ func (a *Agent) Run(ctx context.Context) error {
 	}, fwd.Submit)
 	scanner := discovery.New(a.cfg.LogRoot, a.cfg.RescanInterval, found)
 
+	metricsSrv := a.startMetricsServer()
+
 	var wg sync.WaitGroup
 
 	wg.Add(1)
@@ -78,7 +83,38 @@ func (a *Agent) Run(ctx context.Context) error {
 
 	<-ctx.Done()
 	wg.Wait()
+	if metricsSrv != nil {
+		_ = metricsSrv.Close()
+	}
 	return nil
+}
+
+// startMetricsServer starts a minimal HTTP server serving /metrics
+// (Prometheus) and /healthz on its own port, separate from the collector
+// forwarding path — the agent otherwise has no HTTP listener at all.
+// Errors starting it are logged, not fatal: metrics are diagnostic, losing
+// them shouldn't take down log collection itself.
+func (a *Agent) startMetricsServer() *http.Server {
+	srv := &http.Server{Addr: a.cfg.MetricsAddr, Handler: metricsMux()}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("agent: metrics server error: %v", err)
+		}
+	}()
+	log.Printf("agent: metrics listening on %s", a.cfg.MetricsAddr)
+	return srv
+}
+
+// metricsMux is factored out so it can be exercised directly in tests
+// without binding a real port.
+func metricsMux() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.Handle("GET /metrics", promhttp.Handler())
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+	return mux
 }
 
 func (a *Agent) spawnTailers(ctx context.Context, found <-chan string, lines chan<- tailer.Line) {

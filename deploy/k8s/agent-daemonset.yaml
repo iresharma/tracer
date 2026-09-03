@@ -28,6 +28,9 @@ spec:
         - name: agent
           image: tracer-agent:dev
           imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9091
+              name: metrics
           envFrom:
             - configMapRef:
                 name: tracer-agent-config

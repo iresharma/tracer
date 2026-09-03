@@ -5,6 +5,7 @@ package batcher
 import (
 	"time"
 
+	"github.com/iresharma/tracer/internal/agent/metrics"
 	"github.com/iresharma/tracer/internal/model"
 )
 
@@ -51,6 +52,8 @@ func (b *Batcher) Run(stop <-chan struct{}) {
 		if len(batch) == 0 {
 			return
 		}
+		metrics.BatcherBatchesTotal.Inc()
+		metrics.BatcherEntriesTotal.Add(float64(len(batch)))
 		b.flush(batch)
 		batch = make([]model.LogEntry, 0, b.opts.MaxBatchSize)
 		size = 0
