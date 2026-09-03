@@ -1,0 +1,72 @@
+# replicas is fixed at 1 with strategy Recreate: SQLite is single-writer /
+# single-instance storage, so two collector pods must never mount the RWO
+# PVC at the same time. Recreate guarantees the old pod is fully torn down
+# before the new one starts during a rollout.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tracer-collector
+  namespace: tracer-system
+  labels:
+    app: tracer-collector
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: tracer-collector
+  template:
+    metadata:
+      labels:
+        app: tracer-collector
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+      containers:
+        - name: collector
+          image: tracer-collector:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: tracer-collector-config
+          env:
+            - name: GOMEMLIMIT
+              value: "400MiB"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: tracer-collector-data

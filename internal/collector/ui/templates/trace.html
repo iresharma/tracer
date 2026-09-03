@@ -1,0 +1,84 @@
+{{define "crumb"}}<span class="crumb"><a href="/">Dashboard</a></span><span class="crumb-sep">/</span><span class="crumb"><a href="/logs">Logs</a></span><span class="crumb-sep">/</span><span class="crumb crumb-current mono">{{.TraceID}}</span>{{end}}
+
+{{define "content"}}
+<div class="panel trace-header">
+  <div class="trace-id-row">
+    <h2>Trace</h2>
+    <span class="trace-id-pill">{{.TraceID}}</span>
+  </div>
+  {{if .Rows}}
+  <div class="trace-stats">
+    <div class="trace-stat"><span class="value">{{len .Rows}}</span><span class="label">log lines</span></div>
+    <div class="trace-stat"><span class="value">{{.ServiceCount}}</span><span class="label">services</span></div>
+    <div class="trace-stat"><span class="value">{{.Span}}</span><span class="label">span</span></div>
+  </div>
+  {{else}}
+  <div class="meta">No logs found for this trace ID in the last {{.WindowDays}} days.</div>
+  {{end}}
+</div>
+
+{{if .Rows}}
+<div x-data="{active: null, hoverPct: null}">
+  <div class="panel waterfall">
+    <div class="waterfall-head">
+      <h3>Timeline</h3>
+      <span class="dim">{{len .Lanes}} service{{if ne (len .Lanes) 1}}s{{end}}</span>
+    </div>
+    <div class="waterfall-body"
+         @mousemove="const r=$el.getBoundingClientRect(); const tl=r.left+140; const tw=r.width-140; const p=(($event.clientX-tl)/tw)*100; hoverPct = (p>=0 && p<=100) ? p : null"
+         @mouseleave="hoverPct = null">
+      <div class="axis-row">
+        {{range .Ticks}}<span class="tick-label" style="left:{{.PositionPct}}%">{{.Label}}</span>{{end}}
+      </div>
+      {{range $lane := .Lanes}}
+      <div class="lane">
+        <div class="lane-label">
+          <span class="swatch" style="background:{{$lane.Color}}"></span>
+          <span class="name" title="{{$lane.Service}}">{{$lane.Service}}</span>
+          <span class="count">{{$lane.Count}}</span>
+        </div>
+        <div class="lane-track">
+          {{range $m := $lane.Markers}}
+          <div class="marker {{$m.LevelClass}}"
+               :class="{active: active === {{$m.RowIndex}}}"
+               style="left:{{$m.PositionPct}}%; background:{{$lane.Color}}"
+               @click="active = {{$m.RowIndex}}"
+               @keydown.enter="active = {{$m.RowIndex}}"
+               @keydown.space.prevent="active = {{$m.RowIndex}}"
+               tabindex="0" role="button"
+               title="{{$lane.Service}}{{if $m.Level}} ({{$m.Level}}){{end}}"></div>
+          {{end}}
+        </div>
+      </div>
+      {{end}}
+      <div class="waterfall-overlay">
+        {{range .Ticks}}<div class="gridline" style="left:{{.PositionPct}}%"></div>{{end}}
+        <div class="crosshair" x-show="hoverPct !== null" :style="`left: ${hoverPct}%`"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel trace-rows">
+    {{range .Rows}}
+    <div class="trace-row {{.LevelClass}}"
+         :class="{active: active === {{.RowIndex}}}"
+         @click="active = {{.RowIndex}}"
+         @keydown.enter="active = {{.RowIndex}}"
+         @keydown.space.prevent="active = {{.RowIndex}}"
+         tabindex="0" role="button">
+      <div class="svc">
+        <span class="ts">{{.TimeShort}}</span>
+        <span class="badge" style="background:{{.ServiceColor}}">{{.ServiceLabel}}</span>
+        <div class="pod-name">{{.Pod}}</div>
+        {{if .DurationLabel}}<span class="duration-chip">{{.DurationLabel}}</span>{{end}}
+      </div>
+      <div class="body" x-data="{open:false}">
+        <span x-show="!open" @click.stop="open=true" style="cursor:pointer">{{.Raw}}</span>
+        <pre x-show="open" @click.stop="open=false" style="cursor:pointer;margin:0">{{.PrettyRaw}}</pre>
+      </div>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+{{end}}

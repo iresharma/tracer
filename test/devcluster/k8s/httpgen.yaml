@@ -1,0 +1,108 @@
+# A self-driving 3-hop HTTP service mesh: gateway -> orders -> payments.
+# gateway originates its own synthetic traffic on a timer (no curl needed);
+# orders calls payments for ~65% of requests. Every hop logs a JSON line
+# with a shared trace_id, so the UI's trace view shows a 2-4 line,
+# cross-pod, cross-node trace for each simulated request.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: payments }
+  template:
+    metadata:
+      labels: { app: payments }
+    spec:
+      containers:
+        - name: payments
+          image: httpgen:dev
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: ROLE, value: "payments" }
+            - { name: ERROR_PROBABILITY, value: "0.05" }
+            - { name: SLOW_PROBABILITY, value: "0.15" }
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payments
+  namespace: demo
+spec:
+  selector: { app: payments }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: orders }
+  template:
+    metadata:
+      labels: { app: orders }
+    spec:
+      containers:
+        - name: orders
+          image: httpgen:dev
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: ROLE, value: "orders" }
+            - { name: DOWNSTREAM_URL, value: "http://payments.demo.svc.cluster.local:8080" }
+            - { name: DOWNSTREAM_CALL_PROBABILITY, value: "0.65" }
+            - { name: ERROR_PROBABILITY, value: "0.05" }
+            - { name: SLOW_PROBABILITY, value: "0.1" }
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders
+  namespace: demo
+spec:
+  selector: { app: orders }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: gateway }
+  template:
+    metadata:
+      labels: { app: gateway }
+    spec:
+      containers:
+        - name: gateway
+          image: httpgen:dev
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: ROLE, value: "gateway" }
+            - { name: DOWNSTREAM_URL, value: "http://orders.demo.svc.cluster.local:8080" }
+            - { name: REQUEST_INTERVAL, value: "300ms" }
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: demo
+spec:
+  selector: { app: gateway }
+  ports: [{ port: 8080, targetPort: 8080 }]

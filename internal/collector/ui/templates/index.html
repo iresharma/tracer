@@ -1,0 +1,39 @@
+{{define "crumb"}}<span class="crumb crumb-current">Dashboard</span>{{end}}
+
+{{define "content"}}
+<div class="panel panel-pad">
+  <form class="lookup-box" action="/trace" method="get">
+    <input type="text" name="id" placeholder="Paste a trace ID to stitch its logs across services..." autofocus>
+    <button class="btn" type="submit">View trace</button>
+  </form>
+</div>
+
+<div class="stat-row">
+  <div class="stat"><div class="label">Log lines today</div><div class="value">{{.TodayCount}}</div></div>
+  <div class="stat"><div class="label">Services seen today</div><div class="value">{{.ServiceCount}}</div></div>
+  <div class="stat"><div class="label">Oldest retained day</div><div class="value">{{.OldestDay}}</div></div>
+</div>
+
+<div class="panel">
+  <div class="section-head"><h3>Recent logs</h3></div>
+  {{if .RecentRows}}
+  <div class="table-scroll">
+  <table class="logs">
+    <thead><tr><th>time</th><th>service</th><th>pod</th><th>line</th></tr></thead>
+    <tbody>
+      {{range .RecentRows}}
+      <tr class="log-row {{.LevelClass}}">
+        <td class="ts">{{.TimeShort}}</td>
+        <td><span class="badge" style="background:{{.ServiceColor}}">{{.ServiceLabel}}</span></td>
+        <td class="dim">{{.Pod}}</td>
+        <td class="raw">{{.Raw}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{else}}
+  <p class="empty">No logs ingested yet.</p>
+  {{end}}
+</div>
+{{end}}

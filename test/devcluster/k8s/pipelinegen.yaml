@@ -1,0 +1,29 @@
+# Continuous CI/CD-style pipeline simulator: each replica runs its own
+# stream of pipeline executions (trace_id = pipeline run id), giving a
+# trace "shape" that's different from httpgen's cross-service calls — many
+# sequential stage log lines from a single pod under one trace_id, with
+# occasional stage failures that abort the remaining stages.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pipelinegen
+  namespace: demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: pipelinegen }
+  template:
+    metadata:
+      labels: { app: pipelinegen }
+    spec:
+      containers:
+        - name: pipelinegen
+          image: pipelinegen:dev
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: RUN_INTERVAL, value: "3s" }
+            - { name: STAGE_MAX_DURATION, value: "500ms" }
+            - { name: STAGE_FAIL_PROBABILITY, value: "0.08" }
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 64Mi }

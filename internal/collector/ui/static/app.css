@@ -1,0 +1,613 @@
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/static/fonts/ibm-plex-mono-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/static/fonts/ibm-plex-mono-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --bg: #0b0d12;
+  --bg-elev: #10131a;
+  --bg-panel: #141821;
+  --bg-hover: #1b202b;
+  --border: #212734;
+  --border-strong: #313a4d;
+  --text: #e8eaee;
+  --text-dim: #949dae;
+  --text-faint: #6b7488;
+
+  /* Two accents, two jobs: violet is UI chrome (nav, actions, links);
+     cyan is reserved for the timeline's own structure (axis, gridlines,
+     crosshair) so the trace view reads as an instrument, not more chrome. */
+  --accent: #8468ff;
+  --accent-hover: #7355f0;
+  --accent-dim: #8468ff26;
+  --data: #45d6c4;
+  --data-dim: #45d6c426;
+
+  --sev-error: #f0555f;
+  --sev-error-bg: #f0555f1a;
+  --sev-warn: #eab155;
+  --sev-warn-bg: #eab1551a;
+  --sev-info: #4fa8ff;
+  --sev-debug: #6b7488;
+  --sev-ok: #34d399;
+
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --radius: 8px;
+  --rail-w: 56px;
+  --lane-label-w: 140px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13.5px;
+  line-height: 1.45;
+  overflow-x: hidden;
+}
+
+a { color: inherit; }
+
+::selection { background: var(--accent-dim); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; }
+
+/* Keyboard focus stays visible everywhere; mouse clicks don't trigger it. */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
+textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; }
+}
+
+/* ---------- shell: icon rail + main area ---------- */
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.rail {
+  width: var(--rail-w);
+  flex: 0 0 var(--rail-w);
+  background: var(--bg-elev);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 0;
+  gap: 4px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.rail-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--data));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0b0d12;
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 14px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+}
+
+.rail-link {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  text-decoration: none;
+  position: relative;
+}
+
+.rail-link svg { width: 18px; height: 18px; }
+
+.rail-link:hover { color: var(--text); background: var(--bg-hover); }
+
+.rail-link.active {
+  color: var(--text);
+  background: var(--accent-dim);
+}
+
+.rail-link.active::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+}
+
+.rail-spacer { flex: 1; }
+
+.rail-foot {
+  font-size: 9px;
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 8px 0;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  height: 52px;
+  flex: 0 0 52px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.topbar .crumb {
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
+
+.topbar .crumb-current {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.topbar .crumb-sep { color: var(--text-faint); margin: 0 2px; }
+
+.content {
+  padding: 20px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  flex: 1;
+}
+
+/* ---------- generic building blocks ---------- */
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.panel-pad { padding: 16px; }
+
+/* Compact wayfinding label above a form control in a narrow sidebar —
+   not a page-level heading, so the small tracked-caps treatment earns its
+   keep here (it's how the filter panel and query hints stay scannable). */
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin: 0 0 10px 0;
+}
+
+.btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: var(--sans);
+}
+.btn:hover { background: var(--accent-hover); }
+
+.btn.secondary {
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+}
+.btn.secondary:hover { background: var(--border); }
+
+input, select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  font-family: var(--sans);
+}
+input::placeholder { color: var(--text-faint); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0b0d12;
+}
+
+.dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mono { font-family: var(--mono); }
+.dim { color: var(--text-dim); }
+.faint { color: var(--text-faint); }
+
+.empty {
+  color: var(--text-faint);
+  padding: 24px 0;
+  text-align: center;
+  font-size: 13px;
+}
+
+/* ---------- dashboard ---------- */
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.stat .label { color: var(--text-faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat .value { font-size: 24px; font-weight: 600; margin-top: 4px; }
+
+.lookup-box {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.lookup-box input { flex: 1; font-family: var(--mono); }
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 14px 16px 0 16px;
+}
+.section-head h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text); }
+
+/* ---------- logs page: filter panel + list ---------- */
+
+.logs-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.filter-panel {
+  position: sticky;
+  top: 68px;
+}
+
+.filter-group { padding: 14px; border-bottom: 1px solid var(--border); }
+.filter-group:last-child { border-bottom: none; }
+
+.filter-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin: 6px 0;
+  cursor: pointer;
+}
+.filter-group select, .filter-group input[type="date"] {
+  width: 100%;
+  margin-bottom: 8px;
+}
+.filter-group input[type="checkbox"] { accent-color: var(--accent); }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.toolbar .q { flex: 1; font-family: var(--mono); }
+.toolbar .meta { color: var(--text-faint); font-size: 12px; white-space: nowrap; }
+.toolbar label.live { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--text-dim); cursor: pointer; white-space: nowrap; }
+.toolbar input[type="checkbox"] { accent-color: var(--accent); }
+
+.table-scroll { overflow-x: auto; }
+
+/* Only genuinely technical columns (timestamps, raw payloads, ids) use the
+   monospace face; namespace/pod/service are ordinary words and read better
+   in the UI's own sans, not as if every column were a code snippet. */
+table.logs { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.logs th {
+  text-align: left;
+  color: var(--text-faint);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel);
+}
+table.logs td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+table.logs tr.log-row td:first-child { border-left: 2px solid var(--border-strong); }
+table.logs tr.log-row.lvl-error td:first-child { border-left-color: var(--sev-error); }
+table.logs tr.log-row.lvl-warn td:first-child { border-left-color: var(--sev-warn); }
+table.logs tr.log-row.lvl-info td:first-child { border-left-color: var(--sev-info); }
+table.logs tr.log-row.lvl-debug td:first-child { border-left-color: var(--sev-debug); }
+table.logs tr.log-row:hover { background: var(--bg-hover); }
+
+.ts { color: var(--text-faint); white-space: nowrap; font-family: var(--mono); font-size: 12px; }
+.raw { white-space: pre-wrap; word-break: break-word; color: var(--text); font-family: var(--mono); font-size: 12px; }
+
+/* ---------- trace header ---------- */
+
+.trace-header { padding: 16px; margin-bottom: 12px; }
+.trace-header .trace-id-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.trace-header h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.trace-header .trace-id-pill {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 3px 9px;
+  color: var(--text-dim);
+}
+.trace-header .meta { color: var(--text-faint); font-size: 12.5px; }
+
+.trace-stats { display: flex; gap: 28px; }
+.trace-stat { display: flex; flex-direction: column; }
+.trace-stat .value { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.trace-stat .label { font-size: 10.5px; color: var(--text-faint); margin-top: 1px; }
+
+/* ---------- trace waterfall ---------- */
+
+.waterfall { padding: 14px 16px 18px 16px; margin-bottom: 12px; }
+.waterfall-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.waterfall-head h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text); }
+
+.waterfall-body { position: relative; }
+
+.axis-row {
+  position: relative;
+  height: 20px;
+  margin-left: var(--lane-label-w);
+}
+.tick-label {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.tick-label:first-child { transform: translateX(0); }
+.tick-label:last-child { transform: translateX(-100%); }
+
+.lane { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.lane-label {
+  width: var(--lane-label-w);
+  flex: 0 0 var(--lane-label-w);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  overflow: hidden;
+}
+.lane-label .swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.lane-label .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lane-label .count { color: var(--text-faint); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.lane-track {
+  position: relative;
+  flex: 1;
+  height: 22px;
+  background: var(--bg-hover);
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+}
+
+.marker {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.35);
+}
+.marker:hover, .marker.active { outline: 2px solid var(--text); outline-offset: 1px; }
+.marker.lvl-error { background: var(--sev-error) !important; }
+.marker.lvl-warn { background: var(--sev-warn) !important; }
+
+/* Gridlines and the hover crosshair sit in one overlay positioned exactly
+   over the track region (excludes the lane-label column), pointer-events
+   disabled so it never blocks clicking the markers underneath. */
+.waterfall-overlay {
+  position: absolute;
+  left: var(--lane-label-w);
+  right: 0;
+  top: 20px;
+  bottom: 0;
+  pointer-events: none;
+}
+.gridline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--text-faint);
+  opacity: 0.3;
+}
+.crosshair {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--data);
+  box-shadow: 0 0 6px var(--data-dim);
+}
+
+.trace-rows { padding: 4px; }
+.trace-row {
+  display: flex;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  border-left: 2px solid var(--border-strong);
+  cursor: pointer;
+}
+.trace-row.lvl-error { border-left-color: var(--sev-error); }
+.trace-row.lvl-warn { border-left-color: var(--sev-warn); }
+.trace-row.lvl-info { border-left-color: var(--sev-info); }
+.trace-row.lvl-debug { border-left-color: var(--sev-debug); }
+.trace-row:hover, .trace-row.active { background: var(--bg-hover); }
+.trace-row .svc { width: 168px; flex: 0 0 168px; }
+.trace-row .svc .ts { display: block; margin-bottom: 3px; }
+.trace-row .pod-name { color: var(--text-faint); font-size: 10.5px; margin-top: 2px; font-family: var(--mono); }
+.trace-row .body { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+.duration-chip {
+  display: inline-block;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  margin-top: 4px;
+}
+
+/* ---------- query page ---------- */
+
+/* .table-hint is a <button> reset to look like the plain sidebar row it
+   replaced (div+onclick), so it's keyboard-reachable and activatable. Only
+   real identifiers (table names, via the .mono modifier) use the mono
+   face — the JSON example labels are prose and stay in the UI's sans. */
+.table-hint {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 5px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.table-hint.mono { font-family: var(--mono); }
+.table-hint:hover { background: var(--bg-hover); color: var(--text); }
+
+.filter-group code {
+  font-family: var(--mono);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-size: 11px;
+}
+
+.sql-editor {
+  width: 100%;
+  resize: vertical;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  padding: 10px 12px;
+}
+
+.query-error {
+  margin: 14px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--sev-error-bg);
+  border: 1px solid var(--sev-error);
+  color: var(--sev-error);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}
+
+table.data-table { font-family: var(--mono); }
+table.data-table td { white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+
+@media (max-width: 860px) {
+  .logs-layout { grid-template-columns: 1fr; }
+  .filter-panel { position: static; }
+  .waterfall-body { overflow-x: auto; }
+}

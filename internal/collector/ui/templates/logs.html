@@ -1,0 +1,46 @@
+{{define "crumb"}}<span class="crumb"><a href="/">Dashboard</a></span><span class="crumb-sep">/</span><span class="crumb crumb-current">Logs</span>{{end}}
+
+{{define "content"}}
+<div class="logs-layout">
+  <div class="panel filter-panel">
+    <form id="filter-form"
+          hx-get="/logs/results" hx-trigger="change, keyup changed delay:400ms from:.q"
+          hx-target="#results" hx-swap="innerHTML">
+      <div class="filter-group">
+        <div class="section-title">Namespace</div>
+        <select name="namespace">
+          <option value="">All namespaces</option>
+          {{range .Facets.Namespaces}}<option value="{{.}}" {{if eq . $.Namespace}}selected{{end}}>{{.}}</option>{{end}}
+        </select>
+      </div>
+      <div class="filter-group">
+        <div class="section-title">Container</div>
+        <select name="container">
+          <option value="">All containers</option>
+          {{range .Facets.Containers}}<option value="{{.}}" {{if eq . $.Container}}selected{{end}}>{{.}}</option>{{end}}
+        </select>
+      </div>
+      <div class="filter-group">
+        <div class="section-title">Day</div>
+        <input type="date" name="day" value="{{.Day}}">
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="toolbar">
+      <input class="q" form="filter-form" type="text" name="q" placeholder="Search log text..." value="{{.Query}}">
+      <label class="live">
+        <input type="checkbox" id="live"> Live
+      </label>
+    </div>
+    <div id="results"
+         hx-get="/logs/results"
+         hx-trigger="every 3s [document.getElementById('live') && document.getElementById('live').checked]"
+         hx-include="#filter-form"
+         hx-swap="innerHTML">
+      {{template "results" .Results}}
+    </div>
+  </div>
+</div>
+{{end}}

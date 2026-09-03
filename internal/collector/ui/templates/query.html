@@ -1,0 +1,43 @@
+{{define "crumb"}}<span class="crumb"><a href="/">Dashboard</a></span><span class="crumb-sep">/</span><span class="crumb crumb-current">Query</span>{{end}}
+
+{{define "content"}}
+<div class="logs-layout">
+  <div class="panel filter-panel">
+    <div class="filter-group">
+      <div class="section-title">Tables</div>
+      {{if .Tables}}
+      {{range .Tables}}
+      <button type="button" class="table-hint mono" onclick="document.getElementById('sql-input').value = 'SELECT * FROM {{.}} LIMIT 50'; document.getElementById('sql-input').focus()">{{.}}</button>
+      {{end}}
+      {{else}}
+      <p class="faint" style="font-size:12px">No day-tables yet — ingest some logs first.</p>
+      {{end}}
+    </div>
+    {{if .Examples}}
+    <div class="filter-group">
+      <div class="section-title">JSON query examples</div>
+      <p class="faint" style="font-size:11.5px; margin: 0 0 8px 0">SQLite's <code>json_extract</code> / <code>-&gt;&gt;</code> work directly against <code>raw</code> — no schema needed. Always add <code>WHERE is_json = 1</code> first: not every log line is JSON, and SQLite errors (rather than returning NULL) if a JSON function hits one that isn't.</p>
+      {{range .Examples}}
+      <button type="button" class="table-hint" data-sql="{{.SQL}}" onclick="document.getElementById('sql-input').value = this.dataset.sql; document.getElementById('sql-input').focus()">{{.Label}}</button>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+
+  <div class="panel">
+    <form id="query-form" hx-post="/query/run" hx-target="#query-results" hx-swap="innerHTML">
+      <div style="padding:14px">
+        <textarea id="sql-input" name="sql" class="sql-editor mono" rows="6" spellcheck="false"
+          onkeydown="if((event.metaKey||event.ctrlKey)&&event.key==='Enter'){this.form.requestSubmit()}">{{.SQL}}</textarea>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px">
+          <span class="faint" style="font-size:11.5px">Read-only — SELECT only, writes are rejected at the database level. &#8984;/Ctrl+Enter to run.</span>
+          <button class="btn" type="submit">Run query</button>
+        </div>
+      </div>
+    </form>
+    <div id="query-results">
+      {{if .Result}}{{template "query_results" .Result}}{{else}}<p class="empty">Run a query to see results.</p>{{end}}
+    </div>
+  </div>
+</div>
+{{end}}

@@ -1,0 +1,9 @@
+# Two worker nodes (plus control-plane) so the agent's no-RBAC,
+# path-derived-metadata design is proven across nodes, not just
+# coincidentally correct on a single-node dev cluster.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+  - role: worker
+  - role: worker

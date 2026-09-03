@@ -1,0 +1,21 @@
+{{define "query_results"}}
+{{if .ErrMsg}}
+<div class="query-error">{{.ErrMsg}}</div>
+{{else if .Rows}}
+<div class="table-scroll">
+<table class="logs data-table">
+  <thead><tr>{{range .Columns}}<th>{{.}}</th>{{end}}</tr></thead>
+  <tbody>
+    {{range .Rows}}
+    <tr>{{range .}}<td>{{.}}</td>{{end}}</tr>
+    {{end}}
+  </tbody>
+</table>
+</div>
+<div class="toolbar" style="border-top:1px solid var(--border)">
+  <span class="meta">{{len .Rows}} row{{if ne (len .Rows) 1}}s{{end}}{{if .Truncated}} &middot; truncated at {{len .Rows}}{{end}}</span>
+</div>
+{{else}}
+<p class="empty">Query returned no rows.</p>
+{{end}}
+{{end}}

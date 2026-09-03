@@ -1,0 +1,41 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>tracer</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+  <script src="/static/alpine.min.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <nav class="rail">
+      <a href="/" class="rail-logo" title="tracer">t</a>
+      <div class="rail-nav">
+        <a href="/" class="rail-link {{if eq .Active "home"}}active{{end}}" title="Dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+        </a>
+        <a href="/logs" class="rail-link {{if eq .Active "logs"}}active{{end}}" title="Logs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h13"/></svg>
+        </a>
+        <a href="/query" class="rail-link {{if eq .Active "query"}}active{{end}}" title="Query">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.66 3.13 3 7 3s7-1.34 7-3V6"/><path d="M5 12v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6"/></svg>
+        </a>
+      </div>
+      <div class="rail-spacer"></div>
+      <div class="rail-foot">TRACER</div>
+    </nav>
+    <div class="main">
+      <div class="topbar">
+        {{block "crumb" .}}{{end}}
+      </div>
+      <div class="content">
+        {{template "content" .}}
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+{{end}}

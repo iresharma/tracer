@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tracer-agent-config
+  namespace: tracer-system
+data:
+  COLLECTOR_URL: "http://tracer-collector.tracer-system.svc.cluster.local"
+  TRACE_ID_FIELD: "trace_id"
+  LOG_ROOT: "/var/log/pods"
+  CHECKPOINT_PATH: "/var/lib/tracer-agent/checkpoints.json"
+  POLL_INTERVAL: "250ms"
+  RESCAN_INTERVAL: "30s"
+  MAX_LINE_BYTES: "262144"
+  FLUSH_INTERVAL: "2s"
+  MAX_BATCH_SIZE: "500"
+  MAX_BATCH_BYTES: "524288"
+  RING_BUFFER_CAPACITY: "20"
+  CHECKPOINT_FLUSH_INTERVAL: "3s"
+  START_AT_END: "true"

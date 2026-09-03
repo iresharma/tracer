@@ -1,0 +1,16 @@
+# syntax=docker/dockerfile:1
+FROM golang:1.25-bookworm AS builder
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/agent ./cmd/agent
+
+# Runs as root (the distroless "static-debian12" tag, not ":nonroot"):
+# the agent must read arbitrary containers' log files under the /var/log
+# hostPath mount and write to the /var/lib/tracer-agent hostPath checkpoint
+# directory, both root-owned on most nodes. It still needs no Kubernetes
+# RBAC and never reaches the API server.
+FROM gcr.io/distroless/static-debian12
+COPY --from=builder /out/agent /agent
+ENTRYPOINT ["/agent"]

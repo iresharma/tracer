@@ -1,0 +1,18 @@
+# Sizing rule of thumb: bytes/day ~= lines/day * ~300 bytes/row (raw text +
+# indexes). E.g. 2M lines/day * 300B ~= 600MB/day -> 10-day retention ~= 6GB.
+# Adjust `storage` below to your cluster's actual log volume, and set
+# storageClassName to a real block-storage class for production (the
+# example below assumes a generic default class; kind's local-path
+# provisioner also works for local testing without setting one at all).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tracer-collector-data
+  namespace: tracer-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  # storageClassName: standard

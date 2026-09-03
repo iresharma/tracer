@@ -1,0 +1,17 @@
+# ClusterIP only, intentionally: this MVP has no authn/authz in front of the
+# UI or JSON API. Reach it via `kubectl port-forward`, or put your own
+# authenticating Ingress/reverse-proxy in front of it — do not expose this
+# Service externally as-is.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tracer-collector
+  namespace: tracer-system
+spec:
+  type: ClusterIP
+  selector:
+    app: tracer-collector
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

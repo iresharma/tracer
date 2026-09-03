@@ -1,0 +1,37 @@
+{{define "results"}}
+<div class="toolbar" style="border-bottom:1px solid var(--border)">
+  <span class="meta">{{len .Rows}} row{{if ne (len .Rows) 1}}s{{end}} on this page</span>
+</div>
+{{if .Rows}}
+<div class="table-scroll">
+<table class="logs">
+  <thead><tr><th>time</th><th>namespace</th><th>service</th><th>pod</th><th>trace</th><th>line</th></tr></thead>
+  <tbody id="results-list">
+    {{range .Rows}}
+    <tr class="log-row {{.LevelClass}}">
+      <td class="ts">{{.TimeShort}}</td>
+      <td class="dim">{{.Namespace}}</td>
+      <td><span class="badge" style="background:{{.ServiceColor}}">{{.Container}}</span></td>
+      <td class="dim">{{.Pod}}</td>
+      <td>{{if .TraceID}}<a href="/trace/{{.TraceID}}" class="mono" style="color:var(--accent)">{{.TraceID}}</a>{{end}}</td>
+      <td class="raw">{{.Raw}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+</div>
+{{if .HasMore}}
+<div style="padding:12px">
+<button class="btn secondary"
+        hx-get="/logs/results?namespace={{.Namespace}}&pod={{.Pod}}&container={{.Container}}&day={{.Day}}&q={{.Query}}&cursor={{.LastID}}"
+        hx-select="#results-list > tr"
+        hx-target="#results-list"
+        hx-swap="beforeend">
+  Load older
+</button>
+</div>
+{{end}}
+{{else}}
+<p class="empty">No matching logs.</p>
+{{end}}
+{{end}}
