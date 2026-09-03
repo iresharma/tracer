@@ -24,6 +24,20 @@ type Config struct {
 	CheckpointFlush time.Duration
 	StartAtEnd      bool
 	MetricsAddr     string
+
+	// IngestionMode selects how the agent finds log lines:
+	//   "hostpath" (default) — tail node-local CRI log files via a hostPath
+	//     mount. Needs no Kubernetes API access, but needs hostPath, which
+	//     restricted-tier Pod Security namespaces reject.
+	//   "api" — stream logs via the Kubernetes pods/log API (the same
+	//     mechanism `kubectl logs -f` uses). No hostPath, works in a
+	//     restricted-tier namespace, but needs RBAC (get/list/watch pods,
+	//     get pods/log) and only sees pods in WatchNamespace.
+	IngestionMode string
+	// WatchNamespace is the namespace to watch in "api" mode. Empty means
+	// "the agent's own namespace", read from the in-cluster serviceaccount
+	// namespace file at startup.
+	WatchNamespace string
 }
 
 func Load() Config {
@@ -43,6 +57,8 @@ func Load() Config {
 		CheckpointFlush: getEnvDuration("CHECKPOINT_FLUSH_INTERVAL", 3*time.Second),
 		StartAtEnd:      getEnvBool("START_AT_END", true),
 		MetricsAddr:     getEnv("METRICS_ADDR", ":9091"),
+		IngestionMode:   getEnv("INGESTION_MODE", "hostpath"),
+		WatchNamespace:  getEnv("WATCH_NAMESPACE", ""),
 	}
 }
 

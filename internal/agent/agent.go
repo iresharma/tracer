@@ -35,7 +35,10 @@ func New(cfg config.Config) (*Agent, error) {
 
 // Run blocks the whole collection pipeline until ctx is cancelled, then
 // drains outstanding work (final batch flush, final checkpoint write)
-// before returning.
+// before returning. The actual log source — hostPath tailing or the
+// Kubernetes API — is picked by IngestionMode; everything downstream of
+// "a complete log line with metadata" (batching, forwarding, retry) is
+// shared between both modes.
 func (a *Agent) Run(ctx context.Context) error {
 	stop := make(chan struct{})
 	go func() {
@@ -43,8 +46,6 @@ func (a *Agent) Run(ctx context.Context) error {
 		close(stop)
 	}()
 
-	found := make(chan string, 1000)
-	lines := make(chan tailer.Line, 1000)
 	entries := make(chan model.LogEntry, 1000)
 
 	fwd := forwarder.New(forwarder.Options{
@@ -57,14 +58,10 @@ func (a *Agent) Run(ctx context.Context) error {
 		MaxBatchBytes: a.cfg.MaxBatchBytes,
 		FlushInterval: a.cfg.FlushInterval,
 	}, fwd.Submit)
-	scanner := discovery.New(a.cfg.LogRoot, a.cfg.RescanInterval, found)
 
 	metricsSrv := a.startMetricsServer()
 
 	var wg sync.WaitGroup
-
-	wg.Add(1)
-	go func() { defer wg.Done(); scanner.Run(stop) }()
 
 	wg.Add(1)
 	go func() { defer wg.Done(); fwd.Run(stop) }()
@@ -72,14 +69,31 @@ func (a *Agent) Run(ctx context.Context) error {
 	wg.Add(1)
 	go func() { defer wg.Done(); b.Run(stop) }()
 
-	wg.Add(1)
-	go func() { defer wg.Done(); a.cp.RunPeriodicFlush(a.cfg.CheckpointFlush, stop) }()
+	if a.cfg.IngestionMode == "api" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := a.runAPIMode(ctx, entries, stop); err != nil {
+				log.Printf("agent: api mode exited: %v", err)
+			}
+		}()
+	} else {
+		found := make(chan string, 1000)
+		lines := make(chan tailer.Line, 1000)
+		scanner := discovery.New(a.cfg.LogRoot, a.cfg.RescanInterval, found)
 
-	wg.Add(1)
-	go func() { defer wg.Done(); a.enrich(lines, entries, stop) }()
+		wg.Add(1)
+		go func() { defer wg.Done(); scanner.Run(stop) }()
 
-	wg.Add(1)
-	go func() { defer wg.Done(); a.spawnTailers(ctx, found, lines) }()
+		wg.Add(1)
+		go func() { defer wg.Done(); a.cp.RunPeriodicFlush(a.cfg.CheckpointFlush, stop) }()
+
+		wg.Add(1)
+		go func() { defer wg.Done(); a.enrich(lines, entries, stop) }()
+
+		wg.Add(1)
+		go func() { defer wg.Done(); a.spawnTailers(ctx, found, lines) }()
+	}
 
 	<-ctx.Done()
 	wg.Wait()

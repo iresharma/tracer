@@ -38,12 +38,29 @@ JSON with a `trace_id` field, and tracer does the rest.
                   └────────────────────┘
 ```
 
-- **Agent**: polls container log files (handles both containerd's
-  plaintext CRI format and Docker's json-file format), reassembles
-  runtime-split partial lines, derives namespace/pod/container purely from
-  the kubelet's log path naming (no API server calls), checkpoints its
-  read offset so restarts don't replay or drop lines, and forwards batches
-  with a bounded, drop-oldest ring buffer if the collector is unreachable.
+- **Agent**: two ingestion modes, picked via `INGESTION_MODE`.
+  - `hostpath` (default): a DaemonSet, one per node. Polls container log
+    files directly (handles both containerd's plaintext CRI format and
+    Docker's json-file format), reassembles runtime-split partial lines,
+    derives namespace/pod/container purely from the kubelet's log path
+    naming — no Kubernetes API access, no RBAC. The right fit when you
+    fully own the cluster's nodes (a personal minikube/kind cluster): it
+    needs a hostPath mount, which restricted-tier Pod Security namespaces
+    (common in shared/multi-tenant clusters) reject outright.
+  - `api`: a single Deployment (not per-node) that watches Pods in one
+    namespace via the Kubernetes API and streams each container's logs
+    through the `pods/log` subresource — the same thing `kubectl logs -f`
+    uses. No hostPath at all, so it passes restricted Pod Security
+    Standards cleanly, at the cost of needing RBAC
+    (`get`/`list`/`watch` pods, `get` pods/log) and only ever seeing one
+    namespace. This is the mode for a tenant namespace you don't fully
+    control — see `internal/agent/podwatcher`'s package doc for the full
+    tradeoff.
+
+  Both modes checkpoint/track their own offsets, extract `trace_id` from
+  JSON logs the same way, and forward batches through the same bounded,
+  drop-oldest ring buffer if the collector is unreachable — everything
+  downstream of "a complete log line with metadata" is shared code.
 - **Collector**: SQLite storage with one table per UTC day
   (`logs_YYYYMMDD`), so the 10-day retention policy is a `DROP TABLE`
   instead of `DELETE + VACUUM`. Serves a JSON API, a server-rendered

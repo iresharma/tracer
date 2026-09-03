@@ -105,4 +105,32 @@ var (
 		Help:      "Duration of each checkpoint registry flush.",
 		Buckets:   []float64{.0005, .001, .005, .01, .05, .1, .5, 1},
 	})
+
+	// Podwatcher (internal/agent/podwatcher) — the "api" ingestion mode,
+	// an alternative to the tailer/discovery pair above for namespaces
+	// that can't grant hostPath (see the package doc comment for why).
+	PodwatcherStreamsActive = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: "podwatcher",
+		Name:      "streams_active",
+		Help:      "Current number of container log streams being followed.",
+	})
+	PodwatcherLinesTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: "podwatcher",
+		Name:      "lines_total",
+		Help:      "Total number of log lines received across all streamed containers.",
+	})
+	PodwatcherStreamReconnectsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: "podwatcher",
+		Name:      "stream_reconnects_total",
+		Help:      "Total number of times a container's log stream ended and was reopened (e.g. container restart).",
+	})
+	PodwatcherWatchReconnectsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: "podwatcher",
+		Name:      "watch_reconnects_total",
+		Help:      "Total number of times the pod watch connection itself ended and was reopened (via a fresh LIST+WATCH).",
+	})
 )
