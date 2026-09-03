@@ -1,8 +1,10 @@
-// Command agent is the tracer DaemonSet log-collection agent: it tails
-// container log files on the node, extracts trace correlation data from
-// structured JSON app logs, and forwards batches to the central collector.
-// It never talks to the Kubernetes API — all metadata comes from the
-// kubelet's on-disk log path naming.
+// Command agent is the tracer log-collection agent: it extracts trace
+// correlation data from structured JSON app logs and forwards batches to
+// the central collector. Two ingestion modes (see internal/agent/config):
+// "hostpath" (default) tails container log files on the node directly,
+// with no Kubernetes API access at all; "api" streams logs via the
+// Kubernetes pods/log API instead, for namespaces that can't grant
+// hostPath.
 package main
 
 import (
@@ -26,7 +28,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	log.Printf("agent: starting on node=%s, watching %s, forwarding to %s", cfg.NodeName, cfg.LogRoot, cfg.CollectorURL)
+	if cfg.IngestionMode == "api" {
+		log.Printf("agent: starting in api mode, forwarding to %s", cfg.CollectorURL)
+	} else {
+		log.Printf("agent: starting on node=%s, watching %s, forwarding to %s", cfg.NodeName, cfg.LogRoot, cfg.CollectorURL)
+	}
 	if err := a.Run(ctx); err != nil {
 		log.Fatalf("agent: %v", err)
 	}
