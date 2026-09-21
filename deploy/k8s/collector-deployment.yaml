@@ -39,6 +39,23 @@ spec:
           env:
             - name: GOMEMLIMIT
               value: "400MiB"
+            # See deploy/k8s/collector-secret.yaml — replace its
+            # placeholder values before applying.
+            - name: AUTH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: tracer-collector-auth
+                  key: AUTH_USERNAME
+            - name: AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tracer-collector-auth
+                  key: AUTH_PASSWORD
+            - name: INGEST_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tracer-collector-auth
+                  key: INGEST_TOKEN
           volumeMounts:
             - name: data
               mountPath: /data

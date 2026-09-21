@@ -21,6 +21,9 @@ import (
 type Options struct {
 	CollectorURL string
 	AgentID      string
+	// IngestToken, if set, is sent as "Authorization: Bearer <token>" on
+	// every request, matching the collector's INGEST_TOKEN requirement.
+	IngestToken  string
 	Timeout      time.Duration
 	MinBackoff   time.Duration
 	MaxBackoff   time.Duration
@@ -138,6 +141,9 @@ func (f *Forwarder) send(entries []model.LogEntry) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
+	if f.opts.IngestToken != "" {
+		req.Header.Set("Authorization", "Bearer "+f.opts.IngestToken)
+	}
 
 	resp, err := f.client.Do(req)
 	if err != nil {

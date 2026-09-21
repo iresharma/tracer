@@ -51,6 +51,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	fwd := forwarder.New(forwarder.Options{
 		CollectorURL: a.cfg.CollectorURL,
 		AgentID:      a.cfg.NodeName,
+		IngestToken:  a.cfg.IngestToken,
 		RingCapacity: a.cfg.RingCapacity,
 	})
 	b := batcher.New(entries, batcher.Options{

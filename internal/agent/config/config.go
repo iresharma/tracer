@@ -24,6 +24,10 @@ type Config struct {
 	CheckpointFlush time.Duration
 	StartAtEnd      bool
 	MetricsAddr     string
+	// IngestToken is sent as "Authorization: Bearer <token>" on every
+	// POST to the collector's /api/v1/logs, matching the collector's
+	// INGEST_TOKEN requirement.
+	IngestToken string
 
 	// IngestionMode selects how the agent finds log lines:
 	//   "hostpath" (default) — tail node-local CRI log files via a hostPath
@@ -57,6 +61,7 @@ func Load() Config {
 		CheckpointFlush: getEnvDuration("CHECKPOINT_FLUSH_INTERVAL", 3*time.Second),
 		StartAtEnd:      getEnvBool("START_AT_END", true),
 		MetricsAddr:     getEnv("METRICS_ADDR", ":9091"),
+		IngestToken:     getEnv("INGEST_TOKEN", ""),
 		IngestionMode:   getEnv("INGESTION_MODE", "hostpath"),
 		WatchNamespace:  getEnv("WATCH_NAMESPACE", ""),
 	}

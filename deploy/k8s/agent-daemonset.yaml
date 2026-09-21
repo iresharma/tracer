@@ -39,6 +39,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            # Must match the collector's INGEST_TOKEN (see
+            # deploy/k8s/collector-secret.yaml) — the collector rejects
+            # POST /api/v1/logs without this bearer token.
+            - name: INGEST_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tracer-collector-auth
+                  key: INGEST_TOKEN
           volumeMounts:
             # Mounting the whole /var/log tree (not just /var/log/pods) is
             # deliberate: pod log entries under /var/log/pods are typically

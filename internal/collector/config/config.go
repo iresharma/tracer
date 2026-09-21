@@ -16,6 +16,15 @@ type Config struct {
 	IngestChanCap     int
 	WriterFlushEvery  int // milliseconds
 	WriterFlushAtSize int
+
+	// AuthUsername/AuthPassword gate the UI and query-API (browser/human-
+	// facing) routes with HTTP Basic Auth.
+	AuthUsername string
+	AuthPassword string
+	// IngestToken gates POST /api/v1/logs (agent-to-collector) with a
+	// bearer token, kept separate from the UI/API credential above since
+	// it's a machine credential distributed to every tracer-agent.
+	IngestToken string
 }
 
 func Load() Config {
@@ -28,6 +37,9 @@ func Load() Config {
 		IngestChanCap:     getEnvInt("INGEST_CHAN_CAPACITY", 5000),
 		WriterFlushEvery:  getEnvInt("WRITER_FLUSH_MS", 200),
 		WriterFlushAtSize: getEnvInt("WRITER_FLUSH_SIZE", 500),
+		AuthUsername:      getEnv("AUTH_USERNAME", ""),
+		AuthPassword:      getEnv("AUTH_PASSWORD", ""),
+		IngestToken:       getEnv("INGEST_TOKEN", ""),
 	}
 }
 

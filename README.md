@@ -110,10 +110,31 @@ Build and push both images (`deploy/docker/Dockerfile.agent`,
 `collector-pvc.yaml`), and retention/config values in the two ConfigMaps
 for your environment first.
 
+### Authentication
+
+The collector refuses to start unless credentials are configured. Three
+env vars, sourced from a Kubernetes Secret rather than the plain-text
+ConfigMaps:
+
+- `AUTH_USERNAME` / `AUTH_PASSWORD` — HTTP Basic Auth credential
+  protecting the UI and the JSON query API (`GET /api/v1/*`).
+- `INGEST_TOKEN` — bearer token protecting `POST /api/v1/logs`. The
+  tracer-agent DaemonSet needs the same value in its own `INGEST_TOKEN`
+  env var to keep shipping logs.
+
+`deploy/k8s/collector-secret.yaml` is a template with placeholder values —
+replace them (or generate the Secret out-of-band, e.g. `kubectl create
+secret generic tracer-collector-auth ...` or sealed-secrets) before
+applying; `collector-deployment.yaml` and `agent-daemonset.yaml` both wire
+their `env:` entries to it via `secretKeyRef`. `/healthz`, `/readyz`,
+`/metrics`, and `/static/` stay unauthenticated (probes and scraping need
+that).
+
 ## Status
 
 Personal/homelab project — functional and covered by unit tests
 (`go test ./...` across the store, parser, tailer, and network-facing
-packages), but there's no authentication in front of the UI or API, so
-don't expose the collector Service outside the cluster without putting
-your own auth in front of it.
+packages). HTTP Basic Auth (UI/API) and a bearer token (ingest) are now
+required — see "Authentication" above — but there's still no TLS
+termination, so put a TLS-terminating reverse proxy/Ingress in front of it
+before exposing the collector Service outside the cluster.

@@ -1,7 +1,8 @@
-# ClusterIP only, intentionally: this MVP has no authn/authz in front of the
-# UI or JSON API. Reach it via `kubectl port-forward`, or put your own
-# authenticating Ingress/reverse-proxy in front of it — do not expose this
-# Service externally as-is.
+# ClusterIP only, intentionally. The collector requires HTTP Basic Auth in
+# front of the UI/JSON query API and a bearer token in front of the ingest
+# endpoint (see deploy/k8s/collector-secret.yaml), but there's still no TLS
+# termination here — put a TLS-terminating Ingress/reverse-proxy in front
+# of it before exposing it outside the cluster.
 apiVersion: v1
 kind: Service
 metadata:

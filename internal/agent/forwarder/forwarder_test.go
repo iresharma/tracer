@@ -73,6 +73,33 @@ func TestForwarderRetriesOnCollectorDown(t *testing.T) {
 	t.Fatal("expected batch to eventually be delivered once collector recovers")
 }
 
+func TestForwarderSendsBearerTokenWhenConfigured(t *testing.T) {
+	var gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	f := New(Options{CollectorURL: srv.URL, AgentID: "node-1", IngestToken: "good-token", MinBackoff: 10 * time.Millisecond})
+	stop := make(chan struct{})
+	go f.Run(stop)
+	defer close(stop)
+
+	f.Submit([]model.LogEntry{{Raw: "hello"}})
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if gotAuth != "" {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if gotAuth != "Bearer good-token" {
+		t.Fatalf("expected Authorization header %q, got %q", "Bearer good-token", gotAuth)
+	}
+}
+
 func TestRingDropsOldestWhenFull(t *testing.T) {
 	r := newRing(2)
 	r.Push([]model.LogEntry{{Raw: "1"}})
