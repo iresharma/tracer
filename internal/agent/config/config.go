@@ -38,6 +38,12 @@ type Config struct {
 	// "the agent's own namespace", read from the in-cluster serviceaccount
 	// namespace file at startup.
 	WatchNamespace string
+
+	// IngestAuthToken, when set, is sent as a bearer token on every
+	// request to the collector's ingest endpoint. Must match the
+	// collector's INGEST_AUTH_TOKEN. Empty (the default) sends no
+	// Authorization header.
+	IngestAuthToken string
 }
 
 func Load() Config {
@@ -59,6 +65,7 @@ func Load() Config {
 		MetricsAddr:     getEnv("METRICS_ADDR", ":9091"),
 		IngestionMode:   getEnv("INGESTION_MODE", "hostpath"),
 		WatchNamespace:  getEnv("WATCH_NAMESPACE", ""),
+		IngestAuthToken: getEnv("INGEST_AUTH_TOKEN", ""),
 	}
 }
 

@@ -108,12 +108,23 @@ Build and push both images (`deploy/docker/Dockerfile.agent`,
 `Dockerfile.collector`), then apply `deploy/k8s/*.yaml` — adjust the
 `image:` references, the collector's PVC size (sizing note is in
 `collector-pvc.yaml`), and retention/config values in the two ConfigMaps
-for your environment first.
+for your environment first. Also fill in real credentials in
+`deploy/k8s/collector-secret.yaml` (or generate it with `kubectl create
+secret` instead of committing values) before applying it — it backs the
+authentication described below.
 
 ## Status
 
 Personal/homelab project — functional and covered by unit tests
 (`go test ./...` across the store, parser, tailer, and network-facing
-packages), but there's no authentication in front of the UI or API, so
-don't expose the collector Service outside the cluster without putting
-your own auth in front of it.
+packages). The collector now supports opt-in authentication: HTTP Basic
+Auth in front of the UI and JSON query API (`UI_AUTH_USERNAME` /
+`UI_AUTH_PASSWORD`), and a bearer token in front of ingest
+(`INGEST_AUTH_TOKEN`, checked against the `Authorization: Bearer <token>`
+header the agent sends when configured with the same value). Both are
+disabled by default (empty env vars) for backward compat and local dev —
+set them via `deploy/k8s/collector-secret.yaml` and it's strongly
+recommended you do so before exposing the collector Service outside the
+cluster. This is still self-hosted, no-OAuth auth over plain HTTP, not a
+substitute for TLS termination at a real ingress/reverse-proxy if you want
+to expose it beyond the cluster.

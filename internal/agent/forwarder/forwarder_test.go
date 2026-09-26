@@ -73,6 +73,45 @@ func TestForwarderRetriesOnCollectorDown(t *testing.T) {
 	t.Fatal("expected batch to eventually be delivered once collector recovers")
 }
 
+func TestSendSetsAuthorizationHeaderWhenTokenConfigured(t *testing.T) {
+	var gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	f := New(Options{CollectorURL: srv.URL, AgentID: "node-1", Token: "shh"})
+	if err := f.send([]model.LogEntry{{Raw: "hello"}}); err != nil {
+		t.Fatalf("send failed: %v", err)
+	}
+	if gotAuth != "Bearer shh" {
+		t.Fatalf("expected Authorization header %q, got %q", "Bearer shh", gotAuth)
+	}
+}
+
+func TestSendOmitsAuthorizationHeaderWhenTokenEmpty(t *testing.T) {
+	var gotAuth string
+	sawRequest := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sawRequest = true
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	f := New(Options{CollectorURL: srv.URL, AgentID: "node-1"})
+	if err := f.send([]model.LogEntry{{Raw: "hello"}}); err != nil {
+		t.Fatalf("send failed: %v", err)
+	}
+	if !sawRequest {
+		t.Fatal("expected collector to receive the request")
+	}
+	if gotAuth != "" {
+		t.Fatalf("expected no Authorization header, got %q", gotAuth)
+	}
+}
+
 func TestRingDropsOldestWhenFull(t *testing.T) {
 	r := newRing(2)
 	r.Push([]model.LogEntry{{Raw: "1"}})

@@ -25,6 +25,11 @@ type Options struct {
 	MinBackoff   time.Duration
 	MaxBackoff   time.Duration
 	RingCapacity int
+	// Token, when set, is sent as an "Authorization: Bearer <Token>"
+	// header on every request — must match the collector's
+	// INGEST_AUTH_TOKEN. Empty (the default) sends no Authorization
+	// header at all.
+	Token string
 }
 
 func (o *Options) setDefaults() {
@@ -138,6 +143,9 @@ func (f *Forwarder) send(entries []model.LogEntry) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
+	if f.opts.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+f.opts.Token)
+	}
 
 	resp, err := f.client.Do(req)
 	if err != nil {

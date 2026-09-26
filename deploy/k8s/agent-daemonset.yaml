@@ -39,6 +39,17 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            # Shares the tracer-collector-auth Secret from
+            # collector-secret.yaml — both run in tracer-system, so this
+            # resolves without copying the secret across namespaces. If
+            # you deploy the agent into a different namespace, copy (or
+            # re-create) that secret there first, then update this
+            # secretKeyRef accordingly.
+            - name: INGEST_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tracer-collector-auth
+                  key: ingest-token
           volumeMounts:
             # Mounting the whole /var/log tree (not just /var/log/pods) is
             # deliberate: pod log entries under /var/log/pods are typically

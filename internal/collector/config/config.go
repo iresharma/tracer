@@ -16,6 +16,15 @@ type Config struct {
 	IngestChanCap     int
 	WriterFlushEvery  int // milliseconds
 	WriterFlushAtSize int
+
+	// UIAuthUsername/UIAuthPassword gate the UI and JSON query API behind
+	// HTTP Basic Auth when both are set. Empty (the default) disables
+	// auth entirely, for backward compat and local dev.
+	UIAuthUsername string
+	UIAuthPassword string
+	// IngestAuthToken gates POST /api/v1/logs behind a bearer token when
+	// set. Empty (the default) disables auth entirely.
+	IngestAuthToken string
 }
 
 func Load() Config {
@@ -28,6 +37,9 @@ func Load() Config {
 		IngestChanCap:     getEnvInt("INGEST_CHAN_CAPACITY", 5000),
 		WriterFlushEvery:  getEnvInt("WRITER_FLUSH_MS", 200),
 		WriterFlushAtSize: getEnvInt("WRITER_FLUSH_SIZE", 500),
+		UIAuthUsername:    getEnv("UI_AUTH_USERNAME", ""),
+		UIAuthPassword:    getEnv("UI_AUTH_PASSWORD", ""),
+		IngestAuthToken:   getEnv("INGEST_AUTH_TOKEN", ""),
 	}
 }
 

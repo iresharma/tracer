@@ -47,23 +47,27 @@ func New(cfg config.Config) (*Server, error) {
 	api := queryapi.New(s, cfg.TraceWindowDays)
 	uiHandlers := ui.New(s, cfg.TraceWindowDays)
 
+	basicAuth := func(h http.Handler) http.Handler {
+		return requireBasicAuth(cfg.UIAuthUsername, cfg.UIAuthPassword, h)
+	}
+
 	mux := http.NewServeMux()
-	route(mux, "POST /api/v1/logs", ingestHandler)
-	route(mux, "GET /api/v1/trace/{id}", http.HandlerFunc(api.TraceHandler))
-	route(mux, "GET /api/v1/logs", http.HandlerFunc(api.LogsHandler))
-	route(mux, "GET /api/v1/facets", http.HandlerFunc(api.FacetsHandler))
+	route(mux, "POST /api/v1/logs", requireBearerToken(cfg.IngestAuthToken, ingestHandler))
+	route(mux, "GET /api/v1/trace/{id}", basicAuth(http.HandlerFunc(api.TraceHandler)))
+	route(mux, "GET /api/v1/logs", basicAuth(http.HandlerFunc(api.LogsHandler)))
+	route(mux, "GET /api/v1/facets", basicAuth(http.HandlerFunc(api.FacetsHandler)))
 	mux.HandleFunc("GET /healthz", queryapi.HealthzHandler)
 	mux.HandleFunc("GET /readyz", queryapi.ReadyzHandler(s))
 	mux.Handle("GET /metrics", promhttp.Handler())
 
-	route(mux, "GET /{$}", http.HandlerFunc(uiHandlers.Index))
-	route(mux, "GET /logs", http.HandlerFunc(uiHandlers.LogsPage))
-	route(mux, "GET /logs/results", http.HandlerFunc(uiHandlers.LogsResults))
-	route(mux, "GET /trace", http.HandlerFunc(uiHandlers.TraceRedirect))
-	route(mux, "GET /trace/{id}", http.HandlerFunc(uiHandlers.TraceView))
-	route(mux, "GET /query", http.HandlerFunc(uiHandlers.QueryPage))
-	route(mux, "POST /query/run", http.HandlerFunc(uiHandlers.QueryRun))
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(ui.StaticFS())))
+	route(mux, "GET /{$}", basicAuth(http.HandlerFunc(uiHandlers.Index)))
+	route(mux, "GET /logs", basicAuth(http.HandlerFunc(uiHandlers.LogsPage)))
+	route(mux, "GET /logs/results", basicAuth(http.HandlerFunc(uiHandlers.LogsResults)))
+	route(mux, "GET /trace", basicAuth(http.HandlerFunc(uiHandlers.TraceRedirect)))
+	route(mux, "GET /trace/{id}", basicAuth(http.HandlerFunc(uiHandlers.TraceView)))
+	route(mux, "GET /query", basicAuth(http.HandlerFunc(uiHandlers.QueryPage)))
+	route(mux, "POST /query/run", basicAuth(http.HandlerFunc(uiHandlers.QueryRun)))
+	mux.Handle("GET /static/", basicAuth(http.StripPrefix("/static/", http.FileServerFS(ui.StaticFS()))))
 
 	return &Server{
 		cfg:    cfg,
