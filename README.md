@@ -110,10 +110,34 @@ Build and push both images (`deploy/docker/Dockerfile.agent`,
 `collector-pvc.yaml`), and retention/config values in the two ConfigMaps
 for your environment first.
 
+### Auth
+
+The collector supports opt-in, self-hosted HTTP auth — no OAuth, just HTTP
+Basic Auth for the browser UI and JSON query API, plus a separate Bearer
+token for the agent's ingest calls. It's controlled by four env vars:
+
+- `AUTH_ENABLED` (`collector-configmap.yaml`) — `"true"`/`"false"`, default
+  `"false"`. Non-secret toggle, so it lives in the ConfigMap.
+- `AUTH_USERNAME` / `AUTH_PASSWORD` — Basic Auth credentials checked on the
+  UI and `/api/v1/trace`, `/api/v1/logs`, `/api/v1/facets`.
+- `AUTH_INGEST_TOKEN` — Bearer token checked on `POST /api/v1/logs`. The
+  agent DaemonSet needs the same value to keep shipping logs once auth is
+  enabled, so it's read from the same Secret key
+  (`AUTH_INGEST_TOKEN`) on both sides.
+
+Credentials are secrets, so they go in `deploy/k8s/collector-secret.yaml`
+(a placeholder template — replace the values, or generate the Secret with
+`kubectl create secret generic` / a secret manager instead of applying the
+template as-is) rather than the ConfigMap. `/healthz`, `/readyz`, and
+`/metrics` are always unauthenticated, since they're hit by probes and
+scrapers that can't send credentials.
+
 ## Status
 
 Personal/homelab project — functional and covered by unit tests
 (`go test ./...` across the store, parser, tailer, and network-facing
-packages), but there's no authentication in front of the UI or API, so
-don't expose the collector Service outside the cluster without putting
-your own auth in front of it.
+packages). HTTP Basic Auth (UI/API) and Bearer-token auth (ingest) are now
+available, opt-in via `AUTH_ENABLED` — see "Auth" above. This is still
+plaintext HTTP with no TLS, so if you expose the collector Service outside
+the cluster, terminate TLS in front of it (Ingress/reverse-proxy) rather
+than relying on auth alone.

@@ -39,6 +39,15 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            # Shared with the collector's tracer-collector-auth Secret so
+            # the agent can authenticate its ingest POSTs once the
+            # collector has AUTH_ENABLED=true. Harmless no-op when the
+            # collector has auth disabled.
+            - name: AUTH_INGEST_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tracer-collector-auth
+                  key: AUTH_INGEST_TOKEN
           volumeMounts:
             # Mounting the whole /var/log tree (not just /var/log/pods) is
             # deliberate: pod log entries under /var/log/pods are typically

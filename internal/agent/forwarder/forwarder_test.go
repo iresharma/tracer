@@ -73,6 +73,70 @@ func TestForwarderRetriesOnCollectorDown(t *testing.T) {
 	t.Fatal("expected batch to eventually be delivered once collector recovers")
 }
 
+func TestForwarderSendsAuthTokenInHeader(t *testing.T) {
+	var authHeader string
+	var received int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader = r.Header.Get("Authorization")
+		atomic.AddInt32(&received, 1)
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	f := New(Options{CollectorURL: srv.URL, AgentID: "node-1", AuthToken: "secret-token", MinBackoff: 10 * time.Millisecond})
+	stop := make(chan struct{})
+	go f.Run(stop)
+	defer close(stop)
+
+	f.Submit([]model.LogEntry{{Raw: "hello"}})
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if atomic.LoadInt32(&received) > 0 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if atomic.LoadInt32(&received) == 0 {
+		t.Fatal("expected collector to receive at least one batch")
+	}
+	if authHeader != "Bearer secret-token" {
+		t.Errorf("expected Authorization header 'Bearer secret-token', got %q", authHeader)
+	}
+}
+
+func TestForwarderSendsNoAuthHeaderWhenTokenEmpty(t *testing.T) {
+	var authHeader string
+	var received int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader = r.Header.Get("Authorization")
+		atomic.AddInt32(&received, 1)
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	f := New(Options{CollectorURL: srv.URL, AgentID: "node-1", AuthToken: "", MinBackoff: 10 * time.Millisecond})
+	stop := make(chan struct{})
+	go f.Run(stop)
+	defer close(stop)
+
+	f.Submit([]model.LogEntry{{Raw: "hello"}})
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if atomic.LoadInt32(&received) > 0 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if atomic.LoadInt32(&received) == 0 {
+		t.Fatal("expected collector to receive at least one batch")
+	}
+	if authHeader != "" {
+		t.Errorf("expected no Authorization header when token is empty, got %q", authHeader)
+	}
+}
+
 func TestRingDropsOldestWhenFull(t *testing.T) {
 	r := newRing(2)
 	r.Push([]model.LogEntry{{Raw: "1"}})

@@ -4,6 +4,7 @@ package collector
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -30,6 +31,17 @@ type Server struct {
 }
 
 func New(cfg config.Config) (*Server, error) {
+	if cfg.AuthEnabled {
+		switch {
+		case cfg.AuthUsername == "":
+			return nil, fmt.Errorf("collector: AUTH_ENABLED is true but AUTH_USERNAME is empty")
+		case cfg.AuthPassword == "":
+			return nil, fmt.Errorf("collector: AUTH_ENABLED is true but AUTH_PASSWORD is empty")
+		case cfg.AuthIngestToken == "":
+			return nil, fmt.Errorf("collector: AUTH_ENABLED is true but AUTH_INGEST_TOKEN is empty")
+		}
+	}
+
 	if dir := filepath.Dir(cfg.DBPath); dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, err
@@ -48,22 +60,22 @@ func New(cfg config.Config) (*Server, error) {
 	uiHandlers := ui.New(s, cfg.TraceWindowDays)
 
 	mux := http.NewServeMux()
-	route(mux, "POST /api/v1/logs", ingestHandler)
-	route(mux, "GET /api/v1/trace/{id}", http.HandlerFunc(api.TraceHandler))
-	route(mux, "GET /api/v1/logs", http.HandlerFunc(api.LogsHandler))
-	route(mux, "GET /api/v1/facets", http.HandlerFunc(api.FacetsHandler))
+	route(mux, "POST /api/v1/logs", tokenAuthMiddleware(cfg, ingestHandler))
+	route(mux, "GET /api/v1/trace/{id}", basicAuthMiddleware(cfg, http.HandlerFunc(api.TraceHandler)))
+	route(mux, "GET /api/v1/logs", basicAuthMiddleware(cfg, http.HandlerFunc(api.LogsHandler)))
+	route(mux, "GET /api/v1/facets", basicAuthMiddleware(cfg, http.HandlerFunc(api.FacetsHandler)))
 	mux.HandleFunc("GET /healthz", queryapi.HealthzHandler)
 	mux.HandleFunc("GET /readyz", queryapi.ReadyzHandler(s))
 	mux.Handle("GET /metrics", promhttp.Handler())
 
-	route(mux, "GET /{$}", http.HandlerFunc(uiHandlers.Index))
-	route(mux, "GET /logs", http.HandlerFunc(uiHandlers.LogsPage))
-	route(mux, "GET /logs/results", http.HandlerFunc(uiHandlers.LogsResults))
-	route(mux, "GET /trace", http.HandlerFunc(uiHandlers.TraceRedirect))
-	route(mux, "GET /trace/{id}", http.HandlerFunc(uiHandlers.TraceView))
-	route(mux, "GET /query", http.HandlerFunc(uiHandlers.QueryPage))
-	route(mux, "POST /query/run", http.HandlerFunc(uiHandlers.QueryRun))
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(ui.StaticFS())))
+	route(mux, "GET /{$}", basicAuthMiddleware(cfg, http.HandlerFunc(uiHandlers.Index)))
+	route(mux, "GET /logs", basicAuthMiddleware(cfg, http.HandlerFunc(uiHandlers.LogsPage)))
+	route(mux, "GET /logs/results", basicAuthMiddleware(cfg, http.HandlerFunc(uiHandlers.LogsResults)))
+	route(mux, "GET /trace", basicAuthMiddleware(cfg, http.HandlerFunc(uiHandlers.TraceRedirect)))
+	route(mux, "GET /trace/{id}", basicAuthMiddleware(cfg, http.HandlerFunc(uiHandlers.TraceView)))
+	route(mux, "GET /query", basicAuthMiddleware(cfg, http.HandlerFunc(uiHandlers.QueryPage)))
+	route(mux, "POST /query/run", basicAuthMiddleware(cfg, http.HandlerFunc(uiHandlers.QueryRun)))
+	mux.Handle("GET /static/", basicAuthMiddleware(cfg, http.StripPrefix("/static/", http.FileServerFS(ui.StaticFS()))))
 
 	return &Server{
 		cfg:    cfg,

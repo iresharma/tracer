@@ -36,6 +36,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: tracer-collector-config
+            - secretRef:
+                name: tracer-collector-auth
           env:
             - name: GOMEMLIMIT
               value: "400MiB"
