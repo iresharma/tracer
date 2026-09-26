@@ -16,6 +16,15 @@ type Config struct {
 	IngestChanCap     int
 	WriterFlushEvery  int // milliseconds
 	WriterFlushAtSize int
+
+	// BasicAuthUser/BasicAuthPass gate the UI and query API behind HTTP
+	// Basic Auth. IngestAuthToken gates the ingest endpoint behind a
+	// bearer token. Each is disabled (pass-through) when left empty, so
+	// existing deploys without the auth Secret don't break at startup —
+	// operators SHOULD set these in production (see README).
+	BasicAuthUser   string
+	BasicAuthPass   string
+	IngestAuthToken string
 }
 
 func Load() Config {
@@ -28,6 +37,9 @@ func Load() Config {
 		IngestChanCap:     getEnvInt("INGEST_CHAN_CAPACITY", 5000),
 		WriterFlushEvery:  getEnvInt("WRITER_FLUSH_MS", 200),
 		WriterFlushAtSize: getEnvInt("WRITER_FLUSH_SIZE", 500),
+		BasicAuthUser:     getEnv("AUTH_USERNAME", ""),
+		BasicAuthPass:     getEnv("AUTH_PASSWORD", ""),
+		IngestAuthToken:   getEnv("INGEST_AUTH_TOKEN", ""),
 	}
 }
 

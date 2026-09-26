@@ -108,12 +108,21 @@ Build and push both images (`deploy/docker/Dockerfile.agent`,
 `Dockerfile.collector`), then apply `deploy/k8s/*.yaml` — adjust the
 `image:` references, the collector's PVC size (sizing note is in
 `collector-pvc.yaml`), and retention/config values in the two ConfigMaps
-for your environment first.
+for your environment first. Also fill in real credentials in
+`deploy/k8s/collector-secret.yaml` (`AUTH_USERNAME`, `AUTH_PASSWORD`,
+`INGEST_AUTH_TOKEN` — see Status below) before applying it; it ships
+with placeholder values only.
 
 ## Status
 
 Personal/homelab project — functional and covered by unit tests
 (`go test ./...` across the store, parser, tailer, and network-facing
-packages), but there's no authentication in front of the UI or API, so
-don't expose the collector Service outside the cluster without putting
-your own auth in front of it.
+packages). HTTP Basic Auth now protects the UI and query API, and a
+bearer token protects the ingest endpoint, configured via the
+`AUTH_USERNAME`/`AUTH_PASSWORD`/`INGEST_AUTH_TOKEN` env vars (populated
+from a Kubernetes Secret — see `deploy/k8s/collector-secret.yaml`). Each
+check is disabled if its env var(s) are left empty (backward-compat
+default for existing deploys/local dev), so these must actually be set
+for the auth to take effect. Even with auth configured, treat it as
+defense in depth rather than a reason to expose the collector Service
+outside the cluster.
