@@ -49,9 +49,10 @@ func (a *Agent) Run(ctx context.Context) error {
 	entries := make(chan model.LogEntry, 1000)
 
 	fwd := forwarder.New(forwarder.Options{
-		CollectorURL: a.cfg.CollectorURL,
-		AgentID:      a.cfg.NodeName,
-		RingCapacity: a.cfg.RingCapacity,
+		CollectorURL:    a.cfg.CollectorURL,
+		AgentID:         a.cfg.NodeName,
+		RingCapacity:    a.cfg.RingCapacity,
+		IngestAuthToken: a.cfg.IngestAuthToken,
 	})
 	b := batcher.New(entries, batcher.Options{
 		MaxBatchSize:  a.cfg.MaxBatchSize,

@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/iresharma/tracer/internal/collector/auth"
 	"github.com/iresharma/tracer/internal/collector/config"
 	"github.com/iresharma/tracer/internal/collector/ingest"
 	"github.com/iresharma/tracer/internal/collector/metrics"
@@ -47,22 +48,35 @@ func New(cfg config.Config) (*Server, error) {
 	api := queryapi.New(s, cfg.TraceWindowDays)
 	uiHandlers := ui.New(s, cfg.TraceWindowDays)
 
+	auth.WarnIfUnset(cfg.IngestAuthToken, cfg.UIAuthUsername, cfg.UIAuthPassword)
+
+	// requireIngest/requireUI wrap a handler in the appropriate auth check
+	// before it reaches route()'s instrumentation, so metrics still see
+	// every request (including rejected ones) labeled by the same literal
+	// pattern string used at registration.
+	requireIngest := func(h http.Handler) http.Handler {
+		return auth.RequireIngestToken(cfg.IngestAuthToken, h)
+	}
+	requireUI := func(h http.Handler) http.Handler {
+		return auth.RequireBasicAuth(cfg.UIAuthUsername, cfg.UIAuthPassword, h)
+	}
+
 	mux := http.NewServeMux()
-	route(mux, "POST /api/v1/logs", ingestHandler)
-	route(mux, "GET /api/v1/trace/{id}", http.HandlerFunc(api.TraceHandler))
-	route(mux, "GET /api/v1/logs", http.HandlerFunc(api.LogsHandler))
-	route(mux, "GET /api/v1/facets", http.HandlerFunc(api.FacetsHandler))
+	route(mux, "POST /api/v1/logs", requireIngest(ingestHandler))
+	route(mux, "GET /api/v1/trace/{id}", requireUI(http.HandlerFunc(api.TraceHandler)))
+	route(mux, "GET /api/v1/logs", requireUI(http.HandlerFunc(api.LogsHandler)))
+	route(mux, "GET /api/v1/facets", requireUI(http.HandlerFunc(api.FacetsHandler)))
 	mux.HandleFunc("GET /healthz", queryapi.HealthzHandler)
 	mux.HandleFunc("GET /readyz", queryapi.ReadyzHandler(s))
 	mux.Handle("GET /metrics", promhttp.Handler())
 
-	route(mux, "GET /{$}", http.HandlerFunc(uiHandlers.Index))
-	route(mux, "GET /logs", http.HandlerFunc(uiHandlers.LogsPage))
-	route(mux, "GET /logs/results", http.HandlerFunc(uiHandlers.LogsResults))
-	route(mux, "GET /trace", http.HandlerFunc(uiHandlers.TraceRedirect))
-	route(mux, "GET /trace/{id}", http.HandlerFunc(uiHandlers.TraceView))
-	route(mux, "GET /query", http.HandlerFunc(uiHandlers.QueryPage))
-	route(mux, "POST /query/run", http.HandlerFunc(uiHandlers.QueryRun))
+	route(mux, "GET /{$}", requireUI(http.HandlerFunc(uiHandlers.Index)))
+	route(mux, "GET /logs", requireUI(http.HandlerFunc(uiHandlers.LogsPage)))
+	route(mux, "GET /logs/results", requireUI(http.HandlerFunc(uiHandlers.LogsResults)))
+	route(mux, "GET /trace", requireUI(http.HandlerFunc(uiHandlers.TraceRedirect)))
+	route(mux, "GET /trace/{id}", requireUI(http.HandlerFunc(uiHandlers.TraceView)))
+	route(mux, "GET /query", requireUI(http.HandlerFunc(uiHandlers.QueryPage)))
+	route(mux, "POST /query/run", requireUI(http.HandlerFunc(uiHandlers.QueryRun)))
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(ui.StaticFS())))
 
 	return &Server{

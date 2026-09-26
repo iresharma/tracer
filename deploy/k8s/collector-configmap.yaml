@@ -12,3 +12,7 @@ data:
   INGEST_CHAN_CAPACITY: "5000"
   WRITER_FLUSH_MS: "200"
   WRITER_FLUSH_SIZE: "500"
+  # INGEST_AUTH_TOKEN and UI_AUTH_USERNAME/UI_AUTH_PASSWORD are secrets, not
+  # ordinary config — they live in the tracer-collector-auth Secret
+  # (collector-secret.yaml) and are injected via secretKeyRef in
+  # collector-deployment.yaml, not here.
