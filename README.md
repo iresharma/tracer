@@ -110,10 +110,48 @@ Build and push both images (`deploy/docker/Dockerfile.agent`,
 `collector-pvc.yaml`), and retention/config values in the two ConfigMaps
 for your environment first.
 
+## Configuration
+
+All configuration is via environment variables — see
+`internal/collector/config/config.go` and `internal/agent/config/config.go`
+for defaults, and `deploy/k8s/*-configmap.yaml` for how they're wired in
+cluster. Leaving an auth variable unset disables that check.
+
+**Collector** (`deploy/k8s/collector-configmap.yaml` for the non-secret
+ones, `deploy/k8s/collector-auth-secret.yaml` for the auth ones):
+
+| Env var | Default | Meaning |
+| --- | --- | --- |
+| `HTTP_ADDR` | `:8080` | listen address |
+| `DB_PATH` | `/data/tracer.db` | SQLite file path |
+| `RETENTION_DAYS` | `10` | days of day-partitioned tables to keep |
+| `TRACE_SEARCH_WINDOW_DAYS` | `2` | days scanned when resolving a trace |
+| `SQLITE_CACHE_KB` | `16000` | SQLite page cache size |
+| `INGEST_CHAN_CAPACITY` | `5000` | buffered channel size between ingest HTTP and the writer |
+| `WRITER_FLUSH_MS` | `200` | writer flush interval |
+| `WRITER_FLUSH_SIZE` | `500` | writer flush batch size |
+| `AUTH_USERNAME` | `""` (disabled) | HTTP Basic auth username in front of the UI and JSON query API; must be set together with `AUTH_PASSWORD` |
+| `AUTH_PASSWORD` | `""` (disabled) | HTTP Basic auth password, paired with `AUTH_USERNAME` |
+| `INGEST_TOKEN` | `""` (disabled) | bearer token required on `POST /api/v1/logs` when set |
+
+`/healthz`, `/readyz`, `/metrics`, and `/static/` are never auth-checked
+(kubelet probes and Prometheus scraping hit these directly).
+
+**Agent** (`deploy/k8s/agent-configmap.yaml`), in addition to the modes
+and paths described above:
+
+| Env var | Default | Meaning |
+| --- | --- | --- |
+| `INGEST_TOKEN` | `""` (disabled) | sent as `Authorization: Bearer <token>` on every batch POST to the collector; should match the collector's `INGEST_TOKEN` |
+
 ## Status
 
 Personal/homelab project — functional and covered by unit tests
 (`go test ./...` across the store, parser, tailer, and network-facing
-packages), but there's no authentication in front of the UI or API, so
-don't expose the collector Service outside the cluster without putting
-your own auth in front of it.
+packages). Authentication is optional but recommended: HTTP Basic auth
+can be put in front of the UI and JSON query API, and a bearer token in
+front of ingest, via `AUTH_USERNAME`/`AUTH_PASSWORD`/`INGEST_TOKEN` — see
+[Configuration](#configuration). Both are off by default for
+zero-friction local use, so if you leave them unset, don't expose the
+collector Service outside the cluster without putting your own auth in
+front of it.

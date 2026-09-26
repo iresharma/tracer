@@ -16,6 +16,9 @@ type Config struct {
 	IngestChanCap     int
 	WriterFlushEvery  int // milliseconds
 	WriterFlushAtSize int
+	AuthUsername      string
+	AuthPassword      string
+	IngestToken       string
 }
 
 func Load() Config {
@@ -28,6 +31,9 @@ func Load() Config {
 		IngestChanCap:     getEnvInt("INGEST_CHAN_CAPACITY", 5000),
 		WriterFlushEvery:  getEnvInt("WRITER_FLUSH_MS", 200),
 		WriterFlushAtSize: getEnvInt("WRITER_FLUSH_SIZE", 500),
+		AuthUsername:      getEnv("AUTH_USERNAME", ""),
+		AuthPassword:      getEnv("AUTH_PASSWORD", ""),
+		IngestToken:       getEnv("INGEST_TOKEN", ""),
 	}
 }
 

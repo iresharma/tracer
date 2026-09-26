@@ -73,6 +73,45 @@ func TestForwarderRetriesOnCollectorDown(t *testing.T) {
 	t.Fatal("expected batch to eventually be delivered once collector recovers")
 }
 
+func TestSendSetsAuthorizationHeaderWhenTokenConfigured(t *testing.T) {
+	cases := []struct {
+		name     string
+		token    string
+		wantAuth string
+	}{
+		{
+			name:     "token configured",
+			token:    "s3cret-token",
+			wantAuth: "Bearer s3cret-token",
+		},
+		{
+			name:     "no token configured",
+			token:    "",
+			wantAuth: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var gotAuth string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotAuth = r.Header.Get("Authorization")
+				w.WriteHeader(http.StatusAccepted)
+			}))
+			defer srv.Close()
+
+			f := New(Options{CollectorURL: srv.URL, AgentID: "node-1", IngestToken: tc.token})
+			if err := f.send([]model.LogEntry{{Raw: "hello"}}); err != nil {
+				t.Fatalf("send: %v", err)
+			}
+
+			if gotAuth != tc.wantAuth {
+				t.Errorf("expected Authorization header %q, got %q", tc.wantAuth, gotAuth)
+			}
+		})
+	}
+}
+
 func TestRingDropsOldestWhenFull(t *testing.T) {
 	r := newRing(2)
 	r.Push([]model.LogEntry{{Raw: "1"}})
