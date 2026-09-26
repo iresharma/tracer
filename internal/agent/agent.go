@@ -52,6 +52,7 @@ func (a *Agent) Run(ctx context.Context) error {
 		CollectorURL: a.cfg.CollectorURL,
 		AgentID:      a.cfg.NodeName,
 		RingCapacity: a.cfg.RingCapacity,
+		AuthToken:    a.cfg.AuthToken,
 	})
 	b := batcher.New(entries, batcher.Options{
 		MaxBatchSize:  a.cfg.MaxBatchSize,

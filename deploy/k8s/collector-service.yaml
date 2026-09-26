@@ -1,7 +1,10 @@
-# ClusterIP only, intentionally: this MVP has no authn/authz in front of the
-# UI or JSON API. Reach it via `kubectl port-forward`, or put your own
-# authenticating Ingress/reverse-proxy in front of it — do not expose this
-# Service externally as-is.
+# ClusterIP only, intentionally. Authn is opt-in and off by default: set
+# AUTH_ENABLED=true (collector-configmap.yaml) plus the credentials in
+# collector-secret.yaml to require HTTP Basic Auth on the UI/JSON API and
+# a Bearer token on the ingest endpoint. Even with auth enabled, this is
+# plaintext HTTP with no TLS — reach it via `kubectl port-forward`, or put
+# your own TLS-terminating Ingress/reverse-proxy in front of it before
+# exposing this Service outside the cluster.
 apiVersion: v1
 kind: Service
 metadata:
