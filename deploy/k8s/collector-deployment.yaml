@@ -39,6 +39,23 @@ spec:
           env:
             - name: GOMEMLIMIT
               value: "400MiB"
+            # See collector-secret.yaml — change its placeholder values
+            # before deploying beyond a fully trusted/isolated cluster.
+            - name: INGEST_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tracer-collector-auth
+                  key: INGEST_AUTH_TOKEN
+            - name: UI_AUTH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: tracer-collector-auth
+                  key: UI_AUTH_USERNAME
+            - name: UI_AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tracer-collector-auth
+                  key: UI_AUTH_PASSWORD
           volumeMounts:
             - name: data
               mountPath: /data

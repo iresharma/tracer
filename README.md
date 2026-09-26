@@ -110,10 +110,27 @@ Build and push both images (`deploy/docker/Dockerfile.agent`,
 `collector-pvc.yaml`), and retention/config values in the two ConfigMaps
 for your environment first.
 
+Before deploying, also set real values in `deploy/k8s/collector-secret.yaml`
+and `deploy/k8s/agent-secret.yaml` (both ship with placeholder
+`REPLACE_ME_...` values — generate real ones with e.g.
+`openssl rand -hex 32`): `INGEST_AUTH_TOKEN` must be identical in both
+Secrets (it's the shared credential the agent sends to the collector's
+ingest endpoint), and `UI_AUTH_USERNAME`/`UI_AUTH_PASSWORD` in the
+collector's Secret gate the UI and JSON query API over HTTP Basic auth.
+Leaving any of these unset makes the collector log a startup warning and
+serve that surface unauthenticated — fine for a fully isolated local
+cluster, not for anything reachable beyond it.
+
 ## Status
 
 Personal/homelab project — functional and covered by unit tests
 (`go test ./...` across the store, parser, tailer, and network-facing
-packages), but there's no authentication in front of the UI or API, so
-don't expose the collector Service outside the cluster without putting
-your own auth in front of it.
+packages). The collector now has authentication in front of both HTTP
+surfaces: a shared bearer token (`INGEST_AUTH_TOKEN`) in front of the
+agent-to-collector ingest endpoint, and HTTP Basic auth
+(`UI_AUTH_USERNAME`/`UI_AUTH_PASSWORD`) in front of the UI and JSON query
+API — see `internal/collector/auth` and the "Deploying" section above.
+It's a single shared credential per surface, not a multi-user login
+system, and Basic auth over plaintext HTTP still leaks the password, so
+still don't expose the collector Service outside the cluster without TLS
+(e.g. terminate TLS at an Ingress/reverse-proxy) in front of it.

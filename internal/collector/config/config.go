@@ -16,6 +16,24 @@ type Config struct {
 	IngestChanCap     int
 	WriterFlushEvery  int // milliseconds
 	WriterFlushAtSize int
+
+	// IngestAuthToken guards POST /api/v1/logs (the agent-to-collector,
+	// service-to-service path): callers must send
+	// "Authorization: Bearer <token>". It is a shared secret the agent's
+	// forwarder is configured with separately (see
+	// internal/agent/config.Config.IngestAuthToken) — the two sides must
+	// agree on the same value. Empty disables the check (unauthenticated),
+	// which is the zero-config default so existing deployments and tests
+	// keep working; a startup warning is logged when it's empty.
+	IngestAuthToken string
+	// UIAuthUsername and UIAuthPassword guard the server-rendered UI
+	// (internal/collector/ui) and JSON query API
+	// (internal/collector/queryapi) via HTTP Basic auth. Both must be set
+	// to enable the check; if either is empty, that surface runs
+	// unauthenticated (same zero-config default reasoning as
+	// IngestAuthToken).
+	UIAuthUsername string
+	UIAuthPassword string
 }
 
 func Load() Config {
@@ -28,6 +46,9 @@ func Load() Config {
 		IngestChanCap:     getEnvInt("INGEST_CHAN_CAPACITY", 5000),
 		WriterFlushEvery:  getEnvInt("WRITER_FLUSH_MS", 200),
 		WriterFlushAtSize: getEnvInt("WRITER_FLUSH_SIZE", 500),
+		IngestAuthToken:   getEnv("INGEST_AUTH_TOKEN", ""),
+		UIAuthUsername:    getEnv("UI_AUTH_USERNAME", ""),
+		UIAuthPassword:    getEnv("UI_AUTH_PASSWORD", ""),
 	}
 }
 

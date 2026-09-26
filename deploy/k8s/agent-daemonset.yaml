@@ -39,6 +39,13 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            # See agent-secret.yaml — must match the collector's
+            # INGEST_AUTH_TOKEN in collector-secret.yaml exactly.
+            - name: INGEST_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tracer-agent-auth
+                  key: INGEST_AUTH_TOKEN
           volumeMounts:
             # Mounting the whole /var/log tree (not just /var/log/pods) is
             # deliberate: pod log entries under /var/log/pods are typically
