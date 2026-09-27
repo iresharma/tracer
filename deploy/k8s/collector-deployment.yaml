@@ -39,6 +39,21 @@ spec:
           env:
             - name: GOMEMLIMIT
               value: "400MiB"
+            - name: AUTH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: tracer-collector-auth
+                  key: username
+            - name: AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tracer-collector-auth
+                  key: password
+            - name: INGEST_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tracer-collector-auth
+                  key: ingest-token
           volumeMounts:
             - name: data
               mountPath: /data

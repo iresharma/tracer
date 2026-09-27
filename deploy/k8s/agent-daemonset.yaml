@@ -39,6 +39,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            # Same tracer-system Secret the collector reads its
+            # INGEST_AUTH_TOKEN from (ingest-token key) — both sides must
+            # agree on this value for POST /api/v1/logs to authenticate.
+            - name: INGEST_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tracer-collector-auth
+                  key: ingest-token
           volumeMounts:
             # Mounting the whole /var/log tree (not just /var/log/pods) is
             # deliberate: pod log entries under /var/log/pods are typically
