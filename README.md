@@ -107,13 +107,36 @@ respective logic, `internal/model` is the shared wire format between them.
 Build and push both images (`deploy/docker/Dockerfile.agent`,
 `Dockerfile.collector`), then apply `deploy/k8s/*.yaml` — adjust the
 `image:` references, the collector's PVC size (sizing note is in
-`collector-pvc.yaml`), and retention/config values in the two ConfigMaps
+`collector-pvc.yaml`), retention/config values in the two ConfigMaps, and
+the credentials in `collector-secret.yaml` (see "## Configuration" below)
 for your environment first.
+
+## Configuration
+
+The collector reads these auth-related env vars (also settable via
+`deploy/k8s/collector-secret.yaml`, referenced from
+`collector-deployment.yaml`):
+
+- `AUTH_USERNAME`, `AUTH_PASSWORD` — HTTP Basic Auth credentials protecting
+  the UI and JSON/query API (`/`, `/logs`, `/trace/*`, `/query`,
+  `/api/v1/logs` GET, `/api/v1/trace/*`, `/api/v1/facets`). Leaving either
+  unset disables this layer of auth entirely (a warning is logged at
+  startup).
+- `INGEST_AUTH_TOKEN` — bearer token protecting `POST /api/v1/logs`
+  (agent-to-collector ingestion). Leaving it unset disables ingest auth
+  (a warning is logged at startup). The agent needs the same value set as
+  its own `INGEST_AUTH_TOKEN` env var to keep ingesting successfully.
+
+`/healthz`, `/readyz`, `/metrics`, and `/static/*` are never protected by
+either credential — they're used by kubelet probes, Prometheus scraping,
+and unauthenticated asset loads.
 
 ## Status
 
 Personal/homelab project — functional and covered by unit tests
 (`go test ./...` across the store, parser, tailer, and network-facing
-packages), but there's no authentication in front of the UI or API, so
-don't expose the collector Service outside the cluster without putting
-your own auth in front of it.
+packages). HTTP Basic Auth guards the UI/JSON API and a bearer token
+guards ingest (see "## Configuration"), but both are opt-in: if you leave
+`AUTH_USERNAME`/`AUTH_PASSWORD`/`INGEST_AUTH_TOKEN` unset, the
+corresponding surface is unauthenticated. Set real credentials before
+exposing the collector Service outside the cluster.

@@ -16,6 +16,15 @@ type Config struct {
 	IngestChanCap     int
 	WriterFlushEvery  int // milliseconds
 	WriterFlushAtSize int
+
+	// AuthUsername/AuthPassword protect the UI and JSON/query API via HTTP
+	// Basic Auth. Leaving either empty disables that layer of auth.
+	AuthUsername string
+	AuthPassword string
+	// IngestAuthToken protects POST /api/v1/logs via a bearer token, for
+	// agent-to-collector service traffic. Leaving it empty disables ingest
+	// auth.
+	IngestAuthToken string
 }
 
 func Load() Config {
@@ -28,6 +37,9 @@ func Load() Config {
 		IngestChanCap:     getEnvInt("INGEST_CHAN_CAPACITY", 5000),
 		WriterFlushEvery:  getEnvInt("WRITER_FLUSH_MS", 200),
 		WriterFlushAtSize: getEnvInt("WRITER_FLUSH_SIZE", 500),
+		AuthUsername:      getEnv("AUTH_USERNAME", ""),
+		AuthPassword:      getEnv("AUTH_PASSWORD", ""),
+		IngestAuthToken:   getEnv("INGEST_AUTH_TOKEN", ""),
 	}
 }
 
